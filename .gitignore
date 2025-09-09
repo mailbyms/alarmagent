@@ -1,0 +1,34 @@
+# Node
+node_modules/
+dist/
+.env*
+.DS_Store
+.vscode/
+.idea/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Local build
+*.local
+
+# Mac
+*.DS_Store
+
+# Windows
+Thumbs.db
+
+# Editor
+*.swp
+*.swo
+
+# VSCode
+.vscode/
+
+# Log
+logs/
+*.log
+
+# Others
+coverage/
