@@ -1,7 +1,7 @@
 <template>
   <div class="agent-create-root">
     <div class="header-bar">
-      <div class="title">创建智能体</div>
+      <div class="title">基本信息</div>
     </div>
     <form class="agent-form">
       <div class="form-group required">

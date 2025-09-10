@@ -376,7 +376,7 @@ onMounted(() => {
   box-shadow: 0 2px 8px rgba(36, 37, 38, 0.04);
   padding: 24px;
   margin-top: 32px;
-  height: calc(100vh - 64px - 64px);
+  height: 100%;
   display: flex;
   flex-direction: column;
 }

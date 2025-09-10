@@ -25,10 +25,16 @@
     </aside>
     <div class="content-area">
       <header class="header">
+        <div class="header-title">
+          <template v-if="currentPage === 'agent-list'">智能体管理</template>
+          <template v-else-if="currentPage === 'create-agent'">创建智能体</template>
+          <template v-else-if="currentPage === 'workflow'">流程编排</template>
+          <template v-else>智能体中心</template>
+        </div>
         <div class="header-user">admin</div>
       </header>
       <main class="main-content">
-        <AgentList v-if="currentPage === 'agent-list'" />
+  <AgentList v-if="currentPage === 'agent-list'" @create-agent="currentPage = 'create-agent'" />
         <CreateAgent v-else-if="currentPage === 'create-agent'" />
         <Workflow v-else-if="currentPage === 'workflow'" />
       </main>

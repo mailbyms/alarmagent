@@ -1,5 +1,8 @@
 <template>
   <div class="agent-list-root">
+    <div class="header-bar" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
+  <button class="create-btn" @click="$emit('create-agent')">新建</button>
+    </div>
     <div class="table-section">
       <table class="agent-table">
         <thead>
@@ -40,7 +43,7 @@
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(36, 37, 38, 0.04);
   padding: 16px;
-  margin-top: 16px;
+  margin-top: 32px;
 }
 .header-bar {
   margin-bottom: 18px;
