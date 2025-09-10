@@ -7,8 +7,16 @@
     </div>
     <div class="workflow-canvas-wrapper" ref="canvasContainer" @contextmenu.prevent="handleContextMenu" @click="handleClick"></div>
     <div v-show="showNodeTypeMenu" class="node-type-menu" :style="nodeTypeMenuStyle">
+      <div class="menu-title">添加</div>
       <div v-for="nodeType in menuNodeTypes" :key="nodeType.type" class="menu-item" @click="addNode(nodeType.type)">{{ nodeType.displayName }}</div>
-      <div v-if="canDeleteNode" class="menu-item" @click="deleteNode">删除</div>
+      <div v-if="canDeleteNode">
+        <div class="menu-separator"></div>
+        <div class="menu-title">删除</div>
+        <div class="menu-item" @click="deleteNode">删除</div>
+      </div>
+    </div>
+    <div v-show="showWireMenu" class="node-type-menu" :style="wireMenuPosition">
+      <div class="menu-item" @click="deleteWire">删除连线</div>
     </div>
   </div>
 </template>
@@ -34,6 +42,10 @@ const showNodeTypeMenu = ref(false);
 const nodeTypeMenuStyle = reactive({ top: '0px', left: '0px' });
 const contextNode = ref(null);
 
+const showWireMenu = ref(false);
+const wireMenuPosition = reactive({ top: '0px', left: '0px' });
+const contextWire = ref(null);
+
 const canDeleteNode = computed(() => {
   if (!contextNode.value) return false;
   // simple-flow-web 节点类型有可能在 contextNode.value.type 或 contextNode.value._type
@@ -45,6 +57,7 @@ const canDeleteNode = computed(() => {
 function handleContextMenu(event) {
   const nodeElement = event.target.closest('g.sf-flow-node');
   if (nodeElement) {
+    showWireMenu.value = false;
     const nodeId = nodeElement.id;
     contextNode.value = dataModel.getDataById(nodeId);
     if (contextNode.value) {
@@ -52,14 +65,30 @@ function handleContextMenu(event) {
       nodeTypeMenuStyle.top = `${event.clientY}px`;
       showNodeTypeMenu.value = true;
     }
-  } else {
-    contextNode.value = null;
-    showNodeTypeMenu.value = false;
+    return;
   }
+
+  const wireElement = event.target.closest('.sf-flow-link-path');
+  if (wireElement) {
+    showNodeTypeMenu.value = false;
+    contextWire.value = wireElement.__node__;
+    if (contextWire.value) {
+      wireMenuPosition.left = `${event.clientX}px`;
+      wireMenuPosition.top = `${event.clientY}px`;
+      showWireMenu.value = true;
+    }
+    return;
+  }
+
+  showNodeTypeMenu.value = false;
+  showWireMenu.value = false;
+  contextNode.value = null;
+  contextWire.value = null;
 }
 
 function handleClick() {
   showNodeTypeMenu.value = false;
+  showWireMenu.value = false;
 }
 
 function addNode(type) {
@@ -105,6 +134,14 @@ function deleteNode() {
   contextNode.value = null;
 }
 
+function deleteWire() {
+  if (contextWire.value) {
+    dataModel.remove(contextWire.value);
+  }
+  showWireMenu.value = false;
+  contextWire.value = null;
+}
+
 function downloadJSON(data, filename) {
   const jsonStr = JSON.stringify(data, null, 2);
   const blob = new Blob([jsonStr], { type: 'application/json' });
@@ -119,8 +156,44 @@ function downloadJSON(data, filename) {
 }
 
 function importWorkflow() {
-  // TODO: Implement import functionality
-  console.log('Import button clicked');
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json,application/json';
+
+  input.onchange = e => {
+    const file = e.target.files[0];
+    if (!file) {
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = readerEvent => {
+      const content = readerEvent.target.result;
+      try {
+        const json = JSON.parse(content);
+        if (dataModel && graphView) {
+          // Clear selection to prevent errors on removal
+          graphView.sm().clearSelection();
+
+          // Clear all existing nodes and wires
+          const allNodes = [];
+          dataModel.eachNode(node => allNodes.push(node));
+          if (allNodes.length > 0) {
+            dataModel.remove(allNodes);
+          }
+
+          // Deserialize the new workflow
+          dataModel.deserialize(json);
+        }
+      } catch (error) {
+        console.error('Error parsing or loading workflow:', error);
+        alert('Failed to load workflow. Make sure it is a valid JSON file.');
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  input.click();
 }
 
 function exportWorkflow() {
@@ -355,11 +428,26 @@ onMounted(() => {
 }
 
 .node-type-menu .menu-item {
-  padding: 8px 16px;
+  padding: 4px 16px 6px 24px;
   cursor: pointer;
+  font-size: 14px;
 }
 
 .node-type-menu .menu-item:hover {
   background-color: #f0f2f5;
+}
+
+.node-type-menu .menu-title {
+  padding: 8px 16px;
+  font-weight: 600;
+  color: #666;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.node-type-menu .menu-separator {
+  height: 1px;
+  background-color: #e0e3eb;
+  margin: 4px 0;
 }
 </style>
