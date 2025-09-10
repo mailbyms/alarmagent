@@ -3,8 +3,16 @@
     <aside class="sidebar">
       <div class="logo">值班监控智能体</div>
       <nav class="menu">
-        <div class="menu-item active">智能体管理</div>
-        <div class="menu-item">创建智能体</div>
+        <div
+          class="menu-item"
+          :class="{ active: currentPage === 'agent-list' }"
+          @click="currentPage = 'agent-list'"
+        >智能体管理</div>
+        <div
+          class="menu-item"
+          :class="{ active: currentPage === 'create-agent' }"
+          @click="currentPage = 'create-agent'"
+        >创建智能体</div>
         <div class="menu-item">流程编排</div>
         <div class="menu-item">审核发布</div>
         <div class="menu-item">设置中心</div>
@@ -16,14 +24,18 @@
         <div class="header-user">admin</div>
       </header>
       <main class="main-content">
-        <AgentList />
+        <AgentList v-if="currentPage === 'agent-list'" />
+        <CreateAgent v-else-if="currentPage === 'create-agent'" />
       </main>
     </div>
   </div>
 </template>
 
 <script setup>
+import { ref } from 'vue';
 import AgentList from './AgentList.vue';
+import CreateAgent from './CreateAgent.vue';
+const currentPage = ref('agent-list');
 </script>
 
 <style scoped>
