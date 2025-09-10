@@ -13,7 +13,11 @@
           :class="{ active: currentPage === 'create-agent' }"
           @click="currentPage = 'create-agent'"
         >创建智能体</div>
-        <div class="menu-item">流程编排</div>
+        <div
+          class="menu-item"
+          :class="{ active: currentPage === 'workflow' }"
+          @click="currentPage = 'workflow'"
+        >流程编排</div>
         <div class="menu-item">审核发布</div>
         <div class="menu-item">设置中心</div>
         <div class="menu-item">日志追踪</div>
@@ -26,6 +30,7 @@
       <main class="main-content">
         <AgentList v-if="currentPage === 'agent-list'" />
         <CreateAgent v-else-if="currentPage === 'create-agent'" />
+        <Workflow v-else-if="currentPage === 'workflow'" />
       </main>
     </div>
   </div>
@@ -35,6 +40,7 @@
 import { ref } from 'vue';
 import AgentList from './AgentList.vue';
 import CreateAgent from './CreateAgent.vue';
+import Workflow from './Workflow.vue';
 const currentPage = ref('agent-list');
 </script>
 
