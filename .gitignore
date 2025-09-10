@@ -32,3 +32,5 @@ logs/
 
 # Others
 coverage/
+
+src/simple-flow-web/
