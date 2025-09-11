@@ -5,11 +5,64 @@
     <div class="header-bar">
       <button @click="importWorkflow">导入</button>
       <button @click="exportWorkflow">导出</button>
-  <button @click="saveWorkflow" style="margin-left:auto;background:#43a047;border-color:#43a047;">保存</button>
+  <button @click="saveWorkflow" :disabled="!uuid" :class="{disabled:!uuid}" style="margin-left:auto;background:#43a047;border-color:#43a047;">更新到智能体</button>
     </div>
-    <div v-if="!uuid" style="color:#f44336;font-weight:bold;margin-bottom:12px;">当前为自由体验模式，不支持保存</div>
-    <div class="workflow-canvas-wrapper" ref="canvasContainer" @contextmenu.prevent="handleContextMenu" @click="handleClick"></div>
-    <div v-show="showNodeTypeMenu" class="node-type-menu" :style="nodeTypeMenuStyle">
+    <div v-if="!uuid" style="color:#f44336;font-weight:bold;margin-bottom:12px;">当前为自由体验模式，不支持更新到智能体</div>
+    <div class="workflow-canvas-wrapper" ref="canvasContainer" @contextmenu.prevent="handleContextMenu" @click="handleClick">
+  <div v-if="showDrawer" class="property-drawer" :style="drawerFocusColorStyle">
+      <div class="drawer-header">
+        <span :style="{color: drawerColor}">属性编辑</span>
+        <span class="drawer-close" @click="showDrawer=false">×</span>
+      </div>
+      <div style="margin-bottom: 10px;">
+        <label :style="{color: drawerColor, fontSize: '14px'}">节点名称：</label>
+        <input v-model="drawerData.displayName" type="text" style="{color: drawerColor}" />
+      </div>
+      <div v-if="drawerNodeType==='openwebpage'">
+        <label :style="{color: drawerColor}">目标网址：</label>
+        <input v-model="drawerData.url" type="text" placeholder="https://" />
+        <label :style="{color: drawerColor}">新窗口打开：</label>
+        <input type="checkbox" v-model="drawerData.newTab" />
+        <label :style="{color: drawerColor}">等待元素选择器：</label>
+        <input v-model="drawerData.waitSelector" type="text" placeholder="如 #main" />
+      </div>
+      <div v-else-if="drawerNodeType==='input'">
+        <label :style="{color: drawerColor}">目标元素选择器：</label>
+        <input v-model="drawerData.selector" type="text" placeholder="#input" />
+        <label :style="{color: drawerColor}">输入内容：</label>
+        <input v-model="drawerData.text" type="text" />
+        <label :style="{color: drawerColor}">输入类型：</label>
+        <select v-model="drawerData.inputType">
+          <option value="text">文本</option>
+          <option value="password">密码</option>
+          <option value="number">数字</option>
+        </select>
+        <label :style="{color: drawerColor}">每字符延迟(ms)：</label>
+        <input v-model.number="drawerData.delay" type="number" min="0" />
+      </div>
+      <div v-else-if="drawerNodeType==='click'">
+        <label :style="{color: drawerColor}">目标元素选择器：</label>
+        <input v-model="drawerData.selector" type="text" placeholder="#btn" />
+        <label :style="{color: drawerColor}">点击类型：</label>
+        <select v-model="drawerData.clickType">
+          <option value="left">单击</option>
+          <option value="right">右键</option>
+          <option value="double">双击</option>
+        </select>
+        <label :style="{color: drawerColor}">点击前等待元素：</label>
+        <input v-model="drawerData.waitFor" type="text" placeholder="#ready" />
+      </div>
+      <div v-else-if="drawerNodeType==='delay'">
+        <label :style="{color: drawerColor}">等待时长(ms)：</label>
+        <input v-model.number="drawerData.delay" type="number" min="0" />
+        <label :style="{color: drawerColor}">说明：</label>
+        <input v-model="drawerData.reason" type="text" />
+      </div>
+  <button class="drawer-save" @click="saveDrawer" :style="{background: drawerColor, borderColor: drawerColor}">保存属性</button>
+    </div>
+
+  </div>
+  <div v-show="showNodeTypeMenu" class="node-type-menu" :style="nodeTypeMenuStyle">
       <div class="menu-title">添加</div>
       <div v-for="nodeType in menuNodeTypes" :key="nodeType.type" class="menu-item" @click="addNode(nodeType.type)">{{ nodeType.displayName }}</div>
       <div v-if="canDeleteNode">
@@ -27,6 +80,19 @@
 
 <script setup>
 import { ref, onMounted, reactive, computed } from 'vue';
+
+const DEFAULT_DRAWER_COLOR = '#1976d2';
+
+// 可用于节点类型的主色数组
+const NODE_COLORS = [
+  '#2feb77ff',
+  '#ffbd67ff',
+  '#479ef6ff',
+  '#875bf7',
+  '#ff8feaff',  
+  '#ffd600',  
+  '#ca7301ff',  
+];
 import TopLoadingBar from './TopLoadingBar.vue';
 import { ElMessage } from 'element-plus';
 import { useRoute } from 'vue-router';
@@ -44,6 +110,54 @@ const route = useRoute();
 const uuid = route.query.uuid;
 
 const loading = ref(false);
+
+// 属性编辑抽屉相关
+import {watch } from 'vue';
+const showDrawer = ref(false);
+const drawerData = reactive({});
+const drawerNodeType = ref('');
+let drawerNode = null;
+
+const drawerFocusColorStyle = reactive({});
+const drawerColor = ref(DEFAULT_DRAWER_COLOR);
+function openDrawer(node) {
+  console.log('[Workflow] openDrawer called', node);
+  if (!node) {
+    console.warn('[Workflow] openDrawer: node is null');
+    return;
+  }
+  drawerNodeType.value = node.getType();
+  Object.assign(drawerData, node.getAttrObject());
+  drawerData.displayName = node.getDisplayName ? node.getDisplayName() : (node.displayName || '');
+  drawerNode = node;
+  // 只取 rect.sf-flow-node-main-rect 的 fill 颜色
+  let color = '';
+  if (node._view && typeof node._view.querySelector === 'function') {
+    const rect = node._view.querySelector('rect.sf-flow-node-main-rect');
+    if (rect && rect.getAttribute) {
+      color = rect.getAttribute('fill') || '';
+    }
+  }
+  console.log('[Workflow] Node info:', node, 'rect.fill:', color);
+  drawerFocusColorStyle['--drawer-focus-color'] = color || DEFAULT_DRAWER_COLOR;
+  drawerColor.value = color || DEFAULT_DRAWER_COLOR;
+  showDrawer.value = true;
+  console.log('[Workflow] Drawer opened for node type:', drawerNodeType.value, 'data:', drawerData);
+}
+
+function saveDrawer() {
+  if (drawerNode) {
+    // 保存 displayName
+    if (drawerData.displayName && drawerNode.setDisplayName) {
+      drawerNode.setDisplayName(drawerData.displayName);
+    }
+    // 保存自定义属性
+    const { displayName, ...rest } = drawerData;
+    drawerNode.a({ ...rest });
+    showDrawer.value = false;
+    ElMessage.success('属性已保存');
+  }
+}
 
 async function saveWorkflow() {
   if (!uuid) {
@@ -250,7 +364,7 @@ const nodeTypes = ref([
       class: 'node-inject',
       align:'left',
       category: 'common',
-      bgColor: '#a6bbcf',
+      bgColor: NODE_COLORS[0],
       color:'#fff',
       defaults:{},
       icon: beginIcon,
@@ -266,10 +380,11 @@ const nodeTypes = ref([
     options: {
       align:'left',
       category: 'automation',
-      bgColor: '#4CAF50',
+      bgColor: NODE_COLORS[1],
       color:'#fff',
       defaults:{
-        url: 'https://'
+        url: 'https://', // 目标网址
+        waitSelector: '' // 页面加载后等待的元素选择器
       },
       icon: whiteGlobeIcon,
       inputs:1,
@@ -284,11 +399,12 @@ const nodeTypes = ref([
     options: {
       align:'left',
       category: 'automation',
-      bgColor: '#2196F3',
+      bgColor: NODE_COLORS[2],
       color:'#fff',
       defaults:{
-        selector: '',
-        text: ''
+        selector: '', // 输入目标元素选择器
+        text: '',     // 输入内容
+        inputType: 'text', // 输入类型（text/password/number等）
       },
       icon: keyboardIcon,
       inputs:1,
@@ -303,10 +419,12 @@ const nodeTypes = ref([
     options: {
       align:'left',
       category: 'automation',
-      bgColor: '#9C27B0',
+      bgColor: NODE_COLORS[3],
       color:'#fff',
       defaults:{
-        selector: ''
+        selector: '', // 点击目标元素选择器
+        clickType: 'left', // 点击类型（left/right/double）
+        waitFor: '' // 点击前等待的元素选择器
       },
       icon: mouseIcon,
       inputs:1,
@@ -321,7 +439,7 @@ const nodeTypes = ref([
     options: {
       align:'left',
       category: 'automation',
-      bgColor: '#FF9800',
+      bgColor: NODE_COLORS[4],
       color:'#fff',
       defaults:{
         path: './screenshots/'
@@ -339,10 +457,10 @@ const nodeTypes = ref([
     options: {
       align:'left',
       category: 'automation',
-      bgColor: '#607D8B',
+      bgColor: NODE_COLORS[5],
       color:'#fff',
       defaults:{
-        delay: 1000
+        delay: 1000, // 等待时长（ms）
       },
       icon: timerIcon,
       inputs:1,
@@ -357,7 +475,7 @@ const nodeTypes = ref([
     options: {
       align:'right',
       category: 'common',
-      bgColor: '#87a980',
+      bgColor: NODE_COLORS[6],
       color:'#fff',
       defaults:{},
       icon: finishIcon,
@@ -386,6 +504,59 @@ onMounted(() => {
     });
 
     graphView.addToDom(canvasContainer.value);
+    // 监听节点双击，弹出属性编辑抽屉（用 jQuery 代理，兼容 simple-flow-web）
+    // 修正事件绑定，直接在canvasContainer下的svg层绑定
+    setTimeout(() => {
+      if (!graphView || !graphView.getNodeLayer) {
+        console.warn('[Workflow] graphView or getNodeLayer not ready', graphView);
+        return;
+      }
+      const nodeLayer = graphView.getNodeLayer();
+      if (!nodeLayer) {
+        console.warn('[Workflow] getNodeLayer() returned null', nodeLayer);
+        return;
+      }
+      let nodeLayerEl = null;
+      // 兼容 jQuery 对象、原生 DOM、NodeList
+      if (nodeLayer && typeof nodeLayer.get === 'function') {
+        nodeLayerEl = nodeLayer.get(0);
+      } else if (nodeLayer instanceof Element) {
+        nodeLayerEl = nodeLayer;
+      } else if (Array.isArray(nodeLayer) || (typeof nodeLayer.length === 'number' && nodeLayer.length > 0)) {
+        nodeLayerEl = nodeLayer[0];
+      }
+      if (!nodeLayerEl) {
+        console.warn('[Workflow] nodeLayerEl is null', nodeLayer);
+        return;
+      }
+      console.log('[Workflow] Binding native events on nodeLayer:', nodeLayerEl);
+      // 事件委托：捕获 click/dblclick 到 .sf-flow-node
+      nodeLayerEl.addEventListener('click', function(e) {
+        const target = e.target.closest('.sf-flow-node');
+        if (target) {
+          console.log('[Workflow] Node click event fired', target, e);
+        }
+      });
+      nodeLayerEl.addEventListener('dblclick', function(e) {
+        const target = e.target.closest('.sf-flow-node');
+        if (target) {
+          console.log('[Workflow] Node dblclick event fired', target, e);
+          e.stopPropagation();
+          const node = target.__node__;
+          if (node) {
+            const type = node.getType();
+            console.log('[Workflow] Node type on dblclick:', type);
+            if ([ 'openwebpage', 'input', 'click', 'delay' ].includes(type)) {
+              openDrawer(node);
+            } else {
+              console.log('[Workflow] Node type not handled for drawer:', type);
+            }
+          } else {
+            console.warn('[Workflow] No node found on dblclick');
+          }
+        }
+      });
+    }, 500);
 
     // 注册节点类型
     nodeTypes.value.forEach(nodeType => {
@@ -400,8 +571,17 @@ onMounted(() => {
       fetch(`/api/agents?uuid=${uuid}`)
         .then(res => res.json())
         .then(agents => {
-          if (Array.isArray(agents) && agents.length > 0 && agents[0].workflow) {
-            dataModel.deserialize(typeof agents[0].workflow === 'string' ? JSON.parse(agents[0].workflow) : agents[0].workflow);
+          if (Array.isArray(agents) && agents.length > 0) {
+            const wf = agents[0].workflow;
+            if (wf && (typeof wf === 'object' ? Object.keys(wf).length > 0 : (typeof wf === 'string' && wf.trim() !== '' && wf !== '{}'))) {
+              dataModel.deserialize(typeof wf === 'string' ? JSON.parse(wf) : wf);
+            } else {
+              // workflow 为空，添加一个开始节点
+              let node1 = new SF.Node({ type: 'begin' });
+              node1.setPosition(100, 100);
+              node1.setDisplayName('开始');
+              dataModel.add(node1);
+            }
           }
         })
         .finally(() => {
@@ -418,6 +598,8 @@ onMounted(() => {
     }
   }
 });
+// 样式
+//@vue-ignore
 </script>
 
 <style scoped>
@@ -449,6 +631,13 @@ onMounted(() => {
 
 .header-bar button:hover {
   background-color: #1565c0;
+}
+.header-bar button.disabled,
+.header-bar button:disabled {
+  background: #e0e0e0 !important;
+  color: #bdbdbd !important;
+  border-color: #e0e0e0 !important;
+  cursor: not-allowed !important;
 }
 
 .workflow-canvas-wrapper {
@@ -500,5 +689,75 @@ onMounted(() => {
   height: 1px;
   background-color: #e0e3eb;
   margin: 4px 0;
+}
+.property-drawer {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 340px;
+  background: #fff;
+  box-shadow: 0 4px 24px rgba(36,37,38,0.18), 0 1.5px 6px rgba(36,37,38,0.08);
+  border-radius: 14px;
+  z-index: 3001;
+  padding: 24px 24px 16px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.drawer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 18px;
+  font-weight: bold;
+  margin-bottom: 12px;
+}
+.drawer-close {
+  font-size: 22px;
+  cursor: pointer;
+  color: #888;
+}
+.property-drawer label {
+  font-size: 14px;
+  color: var(--drawer-focus-color, #1976d2);
+  margin-top: 8px;
+}
+.property-drawer input[type="text"],
+.property-drawer input[type="number"],
+.property-drawer select {
+  width: calc(100% - 0px); /* 让输入框宽度不突破padding，0px可根据需要调整 */
+  box-sizing: border-box;
+  padding: 7px 10px;
+  border: 1px solid #e0e3eb;
+  border-radius: 5px;
+  margin-bottom: 6px;
+  font-size: 15px;
+  background: #f8fafc;
+  outline: none;
+  transition: border 0.2s;
+}
+.property-drawer input[type="text"]:focus,
+.property-drawer input[type="number"]:focus,
+.property-drawer select:focus {
+  border: 1.5px solid var(--drawer-focus-color, #1976d2);
+  background: #fff;
+}
+.property-drawer input[type="checkbox"] {
+  margin-left: 8px;
+  margin-bottom: 6px;
+}
+.drawer-save {
+  margin-top: 18px;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 0;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.drawer-save:hover {
+  filter: brightness(0.92);
 }
 </style>

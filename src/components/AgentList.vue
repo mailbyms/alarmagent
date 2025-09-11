@@ -3,7 +3,7 @@
   <div class="agent-list-root">
     <div class="header-bar" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
       <div>
-        <button class="create-btn" @click="$emit('create-agent')">新建</button>
+  <button class="create-btn" @click="goCreateAgent">新建</button>
         <button class="refresh-btn" @click="refreshAgents">刷新</button>
       </div>
     </div>
@@ -76,6 +76,9 @@ async function refreshAgents() {
 }
 function goWorkflow(uuid) {
   router.push({ path: '/workflow', query: { uuid } });
+}
+function goCreateAgent() {
+  router.push({ path: '/create-agent' });
 }
 onMounted(refreshAgents);
 </script>
