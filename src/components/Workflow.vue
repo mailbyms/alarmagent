@@ -1,10 +1,13 @@
 // 编排流程组件来自 simple-flow-web https://github.com/501351981/simple-flow-web
 <template>
+  <TopLoadingBar :loading="loading" />
   <div class="workflow-root">
     <div class="header-bar">
       <button @click="importWorkflow">导入</button>
       <button @click="exportWorkflow">导出</button>
+      <button @click="saveWorkflow" style="margin-left:auto;background:#43a047;border-color:#43a047;">保存</button>
     </div>
+    <div v-if="!uuid" style="color:#f44336;font-weight:bold;margin-bottom:12px;">当前为自由体验模式，不支持保存</div>
     <div class="workflow-canvas-wrapper" ref="canvasContainer" @contextmenu.prevent="handleContextMenu" @click="handleClick"></div>
     <div v-show="showNodeTypeMenu" class="node-type-menu" :style="nodeTypeMenuStyle">
       <div class="menu-title">添加</div>
@@ -21,8 +24,11 @@
   </div>
 </template>
 
+
 <script setup>
 import { ref, onMounted, reactive, computed } from 'vue';
+import TopLoadingBar from './TopLoadingBar.vue';
+import { useRoute } from 'vue-router';
 import SF from 'simple-flow-web';
 import 'simple-flow-web/lib/sf.css';
 
@@ -33,7 +39,10 @@ import mouseIcon from '../assets/icons/node/mouse.svg';
 import snapshotIcon from '../assets/icons/node/snapshot.svg';
 import timerIcon from '../assets/icons/node/timer.svg';
 import finishIcon from '../assets/icons/node/finish.svg';
+const route = useRoute();
+const uuid = route.query.uuid;
 
+const loading = ref(false);
 const canvasContainer = ref(null);
 let dataModel = null;
 let graphView = null;
@@ -356,15 +365,27 @@ onMounted(() => {
       });
     });
 
-    // 添加3个节点
-    let node1 = new SF.Node({
-    type: 'begin',
-    })
-    node1.setPosition(100,100)
-    node1.setDisplayName("开始")
-
-    dataModel.add(node1)
-
+    if (uuid) {
+      loading.value = true;
+      fetch(`/api/agents?uuid=${uuid}`)
+        .then(res => res.json())
+        .then(agents => {
+          if (Array.isArray(agents) && agents.length > 0 && agents[0].workflow) {
+            dataModel.deserialize(typeof agents[0].workflow === 'string' ? JSON.parse(agents[0].workflow) : agents[0].workflow);
+          }
+        })
+        .finally(() => {
+          loading.value = false;
+        });
+    } else {
+      // 体验模式，添加默认节点
+      let node1 = new SF.Node({
+        type: 'begin',
+      })
+      node1.setPosition(100,100)
+      node1.setDisplayName("开始")
+      dataModel.add(node1)
+    }
   }
 });
 </script>

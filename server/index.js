@@ -8,6 +8,30 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
+// 保存/更新指定智能体的 workflow 字段
+app.post('/api/agents/:uuid/workflow', async (req, res) => {
+  const { uuid } = req.params;
+  const { workflow } = req.body;
+  if (!uuid || !workflow) {
+    return res.status(400).json({ error: 'uuid和workflow为必填项' });
+  }
+  try {
+    const conn = await mysql.createConnection(dbConfig);
+    const [result] = await conn.execute(
+      'UPDATE agents SET workflow = ? WHERE uuid = ?',
+      [JSON.stringify(workflow), uuid]
+    );
+    await conn.end();
+    if (result.affectedRows > 0) {
+      res.json({ success: true });
+    } else {
+      res.status(404).json({ error: '未找到对应uuid' });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // 数据库连接配置
 const dbConfig = {
   host: '10.13.3.8',
@@ -19,9 +43,15 @@ const dbConfig = {
 
 // 获取所有智能体
 app.get('/api/agents', async (req, res) => {
+  const { uuid } = req.query;
   try {
     const conn = await mysql.createConnection(dbConfig);
-    const [rows] = await conn.execute('SELECT idx, uuid, name, icon, description, status, created_at, updated_at, screenshot_count FROM agents ORDER BY idx DESC');
+    let rows;
+    if (uuid) {
+      [rows] = await conn.execute('SELECT idx, uuid, name, icon, description, status, created_at, updated_at, screenshot_count, workflow FROM agents WHERE uuid = ?', [uuid]);
+    } else {
+      [rows] = await conn.execute('SELECT idx, uuid, name, icon, description, status, created_at, updated_at, screenshot_count, workflow FROM agents ORDER BY idx DESC');
+    }
     await conn.end();
     res.json(rows);
   } catch (err) {

@@ -1,3 +1,4 @@
+
 <template>
   <div class="agent-list-root">
     <div class="header-bar" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
@@ -6,6 +7,7 @@
         <button class="refresh-btn" @click="refreshAgents">刷新</button>
       </div>
     </div>
+  <TopLoadingBar :loading="loading" />
     <div class="table-section">
       <table class="agent-table">
         <thead>
@@ -49,7 +51,6 @@
               </td>
           </tr>
         </tbody>
-
       </table>
     </div>
   </div>
@@ -58,14 +59,19 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import TopLoadingBar from './TopLoadingBar.vue';
 const agents = ref([]);
+const loading = ref(false);
 const router = useRouter();
 async function refreshAgents() {
+  loading.value = true;
   try {
     const res = await fetch('/api/agents');
     agents.value = await res.json();
   } catch (e) {
     agents.value = [];
+  } finally {
+    loading.value = false;
   }
 }
 function goWorkflow(uuid) {
@@ -152,4 +158,5 @@ onMounted(refreshAgents);
 .btn:hover {
   background: #1565c0;
 }
+/* 顶部进度条已提取为 TopLoadingBar 组件 */
 </style>
