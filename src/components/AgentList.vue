@@ -1,7 +1,10 @@
 <template>
   <div class="agent-list-root">
     <div class="header-bar" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
-  <button class="create-btn" @click="$emit('create-agent')">新建</button>
+      <div>
+        <button class="create-btn" @click="$emit('create-agent')">新建</button>
+        <button class="refresh-btn" @click="refreshAgents">刷新</button>
+      </div>
     </div>
     <div class="table-section">
       <table class="agent-table">
@@ -10,30 +13,44 @@
             <th>智能体名称</th>
             <th>运行状态</th>
             <th>创建时间</th>
-            <th>执行任务数</th>
+            <th>更新时间</th>
+            <th>截图数量</th>
             <th>操作</th>
           </tr>
         </thead>
         <tbody>
-          <tr>
-            <td>智能体A</td>
-            <td><span class="status running">运行中</span></td>
-            <td>2025-09-01 10:00</td>
-            <td>12</td>
-            <td><button class="btn">详情</button></td>
-          </tr>
-          <tr>
-            <td>智能体B</td>
-            <td><span class="status stopped">已停止</span></td>
-            <td>2025-08-28 14:22</td>
-            <td>7</td>
+          <tr v-for="agent in agents" :key="agent.uuid">
+            <td>{{ agent.name }}</td>
+            <td>
+              <span :class="['status', agent.status]">
+                {{ agent.status === 'running' ? '运行中' : '已停止' }}
+              </span>
+            </td>
+            <td>{{ agent.created_at }}</td>
+            <td>{{ agent.updated_at }}</td>
+            <td>{{ agent.screenshot_count }}</td>
             <td><button class="btn">详情</button></td>
           </tr>
         </tbody>
+
       </table>
     </div>
   </div>
 </template>
+
+<script setup>
+import { ref, onMounted } from 'vue';
+const agents = ref([]);
+async function refreshAgents() {
+  try {
+    const res = await fetch('/api/agents');
+    agents.value = await res.json();
+  } catch (e) {
+    agents.value = [];
+  }
+}
+onMounted(refreshAgents);
+</script>
 
 
 <style scoped>
@@ -61,6 +78,21 @@
 }
 .create-btn:hover {
   background: #1565c0;
+}
+.refresh-btn {
+  background: #fff;
+  color: #1976d2;
+  border: 1px solid #1976d2;
+  border-radius: 6px;
+  padding: 8px 22px;
+  font-size: 15px;
+  cursor: pointer;
+  margin-left: 12px;
+  transition: background 0.2s, color 0.2s;
+}
+.refresh-btn:hover {
+  background: #e3f0fd;
+  color: #1565c0;
 }
 .agent-table {
   width: 100%;
