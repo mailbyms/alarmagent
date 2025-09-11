@@ -2,6 +2,7 @@
 const express = require('express');
 const mysql = require('mysql2/promise');
 const cors = require('cors');
+const { v4: uuidv4 } = require('uuid'); // 顶部引入
 
 const app = express();
 app.use(express.json());
@@ -20,9 +21,28 @@ const dbConfig = {
 app.get('/api/agents', async (req, res) => {
   try {
     const conn = await mysql.createConnection(dbConfig);
-    const [rows] = await conn.execute('SELECT idx, uuid, name, description, status, created_at, updated_at, screenshot_count FROM agents ORDER BY idx DESC');
+    const [rows] = await conn.execute('SELECT idx, uuid, name, icon, description, status, created_at, updated_at, screenshot_count FROM agents ORDER BY idx DESC');
     await conn.end();
     res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 新增智能体
+app.post('/api/agents', async (req, res) => {
+  const { name, description, icon } = req.body;
+  if (!name) return res.status(400).json({ error: 'name required' });
+  const uuid = uuidv4();
+  const now = new Date();
+  try {
+    const conn = await mysql.createConnection(dbConfig);
+    await conn.execute(
+      'INSERT INTO agents (uuid, icon, name, description, status, created_at, updated_at, screenshot_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 
+      [uuid, icon || '🤖', name, description || '', 'running', now, now, 0]
+    );
+    await conn.end();
+    res.json({ uuid });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

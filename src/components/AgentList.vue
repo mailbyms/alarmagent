@@ -10,6 +10,7 @@
       <table class="agent-table">
         <thead>
           <tr>
+            <th>图标</th>
             <th>智能体名称</th>
             <th>运行状态</th>
             <th>创建时间</th>
@@ -20,7 +21,10 @@
         </thead>
         <tbody>
           <tr v-for="agent in agents" :key="agent.uuid">
-            <td>{{ agent.name }}</td>
+            <td>{{ agent.icon }}</td>
+            <td>
+              <span :title="agent.description || '没有简介'">{{ agent.name }}</span>
+            </td>
             <td>
               <span :class="['status', agent.status]">
                 {{ agent.status === 'running' ? '运行中' : '已停止' }}
@@ -29,7 +33,20 @@
             <td>{{ agent.created_at }}</td>
             <td>{{ agent.updated_at }}</td>
             <td>{{ agent.screenshot_count }}</td>
-            <td><button class="btn">详情</button></td>
+              <td>
+                <span style="display:none">{{ agent.uuid }}</span>
+                <button class="btn" @click="goWorkflow(agent.uuid)">编排</button>
+                <button
+                  class="btn"
+                  v-if="agent.status === 'running'"
+                  style="margin-left: 8px; background: #f44336;"
+                >停止</button>
+                <button
+                  class="btn"
+                  v-else
+                  style="margin-left: 8px; background: #43a047;"
+                >启动</button>
+              </td>
           </tr>
         </tbody>
 
@@ -40,7 +57,9 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 const agents = ref([]);
+const router = useRouter();
 async function refreshAgents() {
   try {
     const res = await fetch('/api/agents');
@@ -48,6 +67,9 @@ async function refreshAgents() {
   } catch (e) {
     agents.value = [];
   }
+}
+function goWorkflow(uuid) {
+  router.push({ path: '/workflow', query: { uuid } });
 }
 onMounted(refreshAgents);
 </script>

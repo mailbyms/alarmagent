@@ -3,7 +3,7 @@
     <div class="header-bar">
       <div class="title">基本信息</div>
     </div>
-    <form class="agent-form">
+  <form class="agent-form" @submit="handleSubmit">
       <div class="form-group required">
         <label for="agentName">智能体名称</label>
         <input id="agentName" v-model="agentName" type="text" placeholder="请输入智能体名称" required />
@@ -27,16 +27,44 @@
 <script setup>
 import { ref } from 'vue';
 import EmojiPicker from './EmojiPicker.vue';
+import { useRouter } from 'vue-router';
 const agentName = ref('');
 const agentDesc = ref('');
 const selectedIcon = ref('🤖');
 const showEmojiPicker = ref(false);
+const router = useRouter();
 function handleIconClick() {
   showEmojiPicker.value = true;
 }
 function handleEmojiSelect(emoji) {
   selectedIcon.value = emoji;
   showEmojiPicker.value = false;
+}
+async function handleSubmit(e) {
+  e.preventDefault();
+  if (!agentName.value) return;
+  const body = {
+    name: agentName.value,
+    description: agentDesc.value,
+    icon: selectedIcon.value
+  };
+  try {
+    const res = await fetch('/api/agents', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    if (data && data.uuid) {
+      if (window.confirm('创建成功，是否进入流程编排？')) {
+        router.push({ path: '/workflow', query: { uuid: data.uuid } });
+      }
+    } else {
+      alert('创建失败');
+    }
+  } catch (err) {
+    alert('创建失败: ' + err.message);
+  }
 }
 </script>
 

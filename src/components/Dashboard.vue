@@ -1,3 +1,4 @@
+
 <template>
   <div class="dashboard-root">
     <aside class="sidebar">
@@ -5,18 +6,18 @@
       <nav class="menu">
         <div
           class="menu-item"
-          :class="{ active: currentPage === 'agent-list' }"
-          @click="currentPage = 'agent-list'"
+          :class="{ active: $route.path === '/' }"
+          @click="goPage('/')"
         >智能体管理</div>
         <div
           class="menu-item"
-          :class="{ active: currentPage === 'create-agent' }"
-          @click="currentPage = 'create-agent'"
+          :class="{ active: $route.path === '/create-agent' }"
+          @click="goPage('/create-agent')"
         >创建智能体</div>
         <div
           class="menu-item"
-          :class="{ active: currentPage === 'workflow' }"
-          @click="currentPage = 'workflow'"
+          :class="{ active: $route.path === '/workflow' }"
+          @click="goPage('/workflow')"
         >流程编排</div>
         <div class="menu-item">审核发布</div>
         <div class="menu-item">设置中心</div>
@@ -26,28 +27,28 @@
     <div class="content-area">
       <header class="header">
         <div class="header-title">
-          <template v-if="currentPage === 'agent-list'">智能体管理</template>
-          <template v-else-if="currentPage === 'create-agent'">创建智能体</template>
-          <template v-else-if="currentPage === 'workflow'">流程编排</template>
+          <template v-if="$route.path === '/'">智能体管理</template>
+          <template v-else-if="$route.path === '/create-agent'">创建智能体</template>
+          <template v-else-if="$route.path === '/workflow'">流程编排</template>
           <template v-else>智能体中心</template>
         </div>
         <div class="header-user">admin</div>
       </header>
       <main class="main-content">
-  <AgentList v-if="currentPage === 'agent-list'" @create-agent="currentPage = 'create-agent'" />
-        <CreateAgent v-else-if="currentPage === 'create-agent'" />
-        <Workflow v-else-if="currentPage === 'workflow'" />
+        <router-view />
       </main>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue';
-import AgentList from './AgentList.vue';
-import CreateAgent from './CreateAgent.vue';
-import Workflow from './Workflow.vue';
-const currentPage = ref('agent-list');
+import { useRouter } from 'vue-router';
+const router = useRouter();
+function goPage(path) {
+  if (router.currentRoute.value.path !== path) {
+    router.push(path);
+  }
+}
 </script>
 
 <style scoped>
