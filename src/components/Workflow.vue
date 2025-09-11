@@ -5,7 +5,7 @@
     <div class="header-bar">
       <button @click="importWorkflow">导入</button>
       <button @click="exportWorkflow">导出</button>
-      <button @click="saveWorkflow" style="margin-left:auto;background:#43a047;border-color:#43a047;">保存</button>
+  <button @click="saveWorkflow" style="margin-left:auto;background:#43a047;border-color:#43a047;">保存</button>
     </div>
     <div v-if="!uuid" style="color:#f44336;font-weight:bold;margin-bottom:12px;">当前为自由体验模式，不支持保存</div>
     <div class="workflow-canvas-wrapper" ref="canvasContainer" @contextmenu.prevent="handleContextMenu" @click="handleClick"></div>
@@ -28,6 +28,7 @@
 <script setup>
 import { ref, onMounted, reactive, computed } from 'vue';
 import TopLoadingBar from './TopLoadingBar.vue';
+import { ElMessage } from 'element-plus';
 import { useRoute } from 'vue-router';
 import SF from 'simple-flow-web';
 import 'simple-flow-web/lib/sf.css';
@@ -43,6 +44,35 @@ const route = useRoute();
 const uuid = route.query.uuid;
 
 const loading = ref(false);
+
+async function saveWorkflow() {
+  if (!uuid) {
+  ElMessage.error('无效uuid，无法保存');
+  return;
+  }
+  if (!dataModel) {
+  ElMessage.error('流程未初始化');
+  return;
+  }
+  loading.value = true;
+  try {
+    const workflow = dataModel.serialize();
+    const res = await fetch(`/api/agents/${uuid}/workflow`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ workflow })
+    });
+    if (res.ok) {
+      ElMessage.success('保存成功');
+    } else {
+      ElMessage.error('保存失败');
+    }
+  } catch (e) {
+  ElMessage.error('保存异常');
+  } finally {
+    loading.value = false;
+  }
+}
 const canvasContainer = ref(null);
 let dataModel = null;
 let graphView = null;
