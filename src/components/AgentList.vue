@@ -9,7 +9,7 @@
     </div>
   <TopLoadingBar :loading="loading" />
     <div class="table-section">
-      <table class="agent-table">
+      <table class="common-table agent-table">
         <thead>
           <tr>
             <th>图标</th>
@@ -52,12 +52,21 @@
           </tr>
         </tbody>
       </table>
+      <div class="pagination-bar">
+        <button class="page-btn" :disabled="page===1" @click="changePage(page-1)">上一页</button>
+        <span class="page-info">第 {{ page }} / {{ totalPages }} 页</span>
+        <button class="page-btn" :disabled="page===totalPages" @click="changePage(page+1)">下一页</button>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
+const page = ref(1);
+const pageSize = 10;
+const total = ref(0);
+const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize)));
 import { useRouter } from 'vue-router';
 import TopLoadingBar from './TopLoadingBar.vue';
 const agents = ref([]);
@@ -66,13 +75,21 @@ const router = useRouter();
 async function refreshAgents() {
   loading.value = true;
   try {
-    const res = await fetch('/api/agents');
-    agents.value = await res.json();
+    const res = await fetch(`/api/agents?page=${page.value}&pageSize=${pageSize}`);
+    const data = await res.json();
+    agents.value = Array.isArray(data.list) ? data.list : [];
+    total.value = data.total || 0;
   } catch (e) {
     agents.value = [];
+    total.value = 0;
   } finally {
     loading.value = false;
   }
+}
+function changePage(p) {
+  if (p < 1 || p > totalPages.value) return;
+  page.value = p;
+  refreshAgents();
 }
 function goWorkflow(uuid) {
   router.push({ path: '/workflow', query: { uuid } });
@@ -125,19 +142,20 @@ onMounted(refreshAgents);
   background: #e3f0fd;
   color: #1565c0;
 }
-.agent-table {
+/* 通用表格样式 */
+.common-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 14px;
 }
-.agent-table th, .agent-table td {
+.common-table th, .common-table td {
   padding: 12px 8px;
   text-align: left;
 }
-.agent-table thead {
+.common-table thead {
   background: #e3f0fd;
 }
-.agent-table tbody tr {
+.common-table tbody tr {
   border-bottom: 1px solid #e0e3eb;
 }
 .status.running {
@@ -161,5 +179,31 @@ onMounted(refreshAgents);
 .btn:hover {
   background: #1565c0;
 }
-/* 顶部进度条已提取为 TopLoadingBar 组件 */
+/* 分页栏通用样式 */
+.pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  margin-top: 32px;
+  gap: 16px;
+}
+.page-btn {
+  background: #fff;
+  color: #1976d2;
+  border: 1px solid #1976d2;
+  border-radius: 6px;
+  padding: 4px 16px;
+  font-size: 15px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.page-btn:disabled {
+  color: #aaa;
+  border-color: #eee;
+  cursor: not-allowed;
+}
+.page-info {
+  font-size: 15px;
+  color: #333;
+}
 </style>

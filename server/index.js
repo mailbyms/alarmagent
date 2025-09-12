@@ -1,3 +1,6 @@
+// 判断是否开发模式
+const isDev = process.env.NODE_ENV === 'development';
+
 // ===== 爬虫相关依赖与工具导入 =====
 const path = require('path');
 const fs = require('fs');
@@ -50,19 +53,25 @@ const dbConfig = {
   port: 7306
 };
 
-// 获取所有智能体
+// 获取所有智能体，支持分页
 app.get('/api/agents', async (req, res) => {
-  const { uuid } = req.query;
+  const { uuid, page, pageSize } = req.query;
+  const pageNum = Math.max(1, parseInt(page) || 1);
+  const size = Math.max(1, Math.min(100, parseInt(pageSize) || 10));
+  const offset = (pageNum - 1) * size;
   try {
     const conn = await mysql.createConnection(dbConfig);
-    let rows;
+    let rows, total = 0;
     if (uuid) {
       [rows] = await conn.execute('SELECT idx, uuid, name, icon, description, status, created_at, updated_at, screenshot_count, workflow FROM agents WHERE uuid = ?', [uuid]);
+      total = rows.length;
     } else {
-      [rows] = await conn.execute('SELECT idx, uuid, name, icon, description, status, created_at, updated_at, screenshot_count, workflow FROM agents ORDER BY idx DESC');
+      [rows] = await conn.execute('SELECT idx, uuid, name, icon, description, status, created_at, updated_at, screenshot_count, workflow FROM agents ORDER BY idx DESC LIMIT ? OFFSET ?', [size, offset]);
+      const [[{ total: t } = { total: 0 }]] = await conn.execute('SELECT COUNT(*) as total FROM agents');
+      total = t;
     }
     await conn.end();
-    res.json(rows);
+    res.json({ list: rows, total });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -84,13 +93,44 @@ app.post('/api/workflow/crawler/test', async (req, res) => {
     res.write(`data: ${JSON.stringify(data)}\n\n`);
   }
 
-  const workflow = req.body;
+  // 支持新格式 { uuid, workflow }
+  let uuid, workflow;
+  if (req.body && req.body.workflow && req.body.uuid) {
+    uuid = req.body.uuid;
+    workflow = req.body.workflow;
+  } else {
+    workflow = req.body;
+    uuid = req.body.uuid;
+  }
+  if (!uuid) {
+    sendSSE({ error: '缺少智能体uuid' });
+    res.end();
+    return;
+  }
   if (!workflow || !workflow.d || !Array.isArray(workflow.d)) {
     sendSSE({ error: '参数格式错误，需包含 d 节点数组' });
     res.end();
     return;
   }
   const nodes = workflow.d;
+
+  // ===== 任务入库 =====
+  let taskId = null;
+  let conn = null;
+  const startTime = new Date();
+  try {
+    conn = await mysql.createConnection(dbConfig);
+    const [result] = await conn.execute(
+      'INSERT INTO crawler_task (agent_uuid, workflow_json, start_time, status) VALUES (?, ?, ?, ?)',
+      [uuid, JSON.stringify(workflow), startTime, 'running']
+    );
+    taskId = result.insertId;
+  } catch (err) {
+    sendSSE({ error: '任务入库失败: ' + err.message });
+    res.end();
+    if (conn) await conn.end();
+    return;
+  }
   const nodeMap = {};
   nodes.forEach(n => { nodeMap[n.id] = n; });
   const begin = nodes.find(n => n.type === 'begin');
@@ -119,6 +159,9 @@ app.post('/api/workflow/crawler/test', async (req, res) => {
   visit(begin);
 
   let browser, context, page;
+  let taskStatus = 'success';
+  let taskResult = [];
+  let endTime = null;
   try {
     for (const node of ordered) {
       let result = { id: node.id, type: node.type, displayName: node.p && node.p.displayName };
@@ -159,11 +202,31 @@ app.post('/api/workflow/crawler/test', async (req, res) => {
         } else if (node.type === 'screenshot') {
           if (page) {
             const ts = Date.now();
-            const shotPath = path.join('shots', `${ts}.png`);
-            ensureDir('shots');
-            await page.screenshot({ path: shotPath, fullPage: true });
-            result.status = 'screenshot saved';
-            result.shotPath = shotPath;
+            let imgBuffer;
+            let shotPath = path.join('shots', `${ts}.png`);
+            if (isDev) {
+              ensureDir('shots');
+              await page.screenshot({ path: shotPath, fullPage: true });
+              imgBuffer = fs.readFileSync(shotPath);
+              result.status = 'screenshot saved';
+              result.shotPath = shotPath;
+            } else {
+              // 生产环境只存内存
+              imgBuffer = await page.screenshot({ fullPage: true });
+              result.status = 'screenshot saved';
+            }
+            // 保存到数据库
+            try {
+              const imgBase64 = imgBuffer.toString('base64');
+              if (conn && taskId) {
+                await conn.execute(
+                  'INSERT INTO crawler_shot (task_id, created_at, image_base64) VALUES (?, ?, ?)',
+                  [taskId, new Date(), imgBase64]
+                );
+              }
+            } catch (imgErr) {
+              result.status += ' (db save failed: ' + imgErr.message + ')';
+            }
           } else {
             result.status = 'skip (no page)';
           }
@@ -196,16 +259,53 @@ app.post('/api/workflow/crawler/test', async (req, res) => {
         }
       } catch (stepErr) {
         result.status = 'error: ' + stepErr.message;
+        taskStatus = 'failed';
       }
       sendSSE(result);
+      taskResult.push(result);
     }
     if (browser) await browser.close();
+    endTime = new Date();
+    // 更新任务为成功
+    if (conn && taskId) {
+      await conn.execute(
+        'UPDATE crawler_task SET end_time=?, status=?, result=? WHERE id=?',
+        [endTime, taskStatus, JSON.stringify(taskResult), taskId]
+      );
+    }
     sendSSE({ done: true });
     res.end();
+    if (conn) await conn.end();
   } catch (e) {
     if (browser) await browser.close();
+    endTime = new Date();
+    taskStatus = 'failed';
+    // 更新任务为失败
+    if (conn && taskId) {
+      await conn.execute(
+        'UPDATE crawler_task SET end_time=?, status=?, result=? WHERE id=?',
+        [endTime, taskStatus, JSON.stringify({ error: e.message }), taskId]
+      );
+    }
     sendSSE({ error: e.message });
     res.end();
+    if (conn) await conn.end();
+  }
+});
+
+// 获取所有爬虫任务记录，支持分页
+app.get('/api/crawler/tasks', async (req, res) => {
+  const page = Math.max(1, parseInt(req.query.page) || 1);
+  const pageSize = Math.max(1, Math.min(100, parseInt(req.query.pageSize) || 10));
+  const offset = (page - 1) * pageSize;
+  try {
+    const conn = await mysql.createConnection(dbConfig);
+    const [rows] = await conn.execute('SELECT id, agent_uuid, workflow_json, start_time, end_time, status, result FROM crawler_task ORDER BY id DESC LIMIT ? OFFSET ?', [pageSize, offset]);
+    const [[{ total } = { total: 0 }]] = await conn.execute('SELECT COUNT(*) as total FROM crawler_task');
+    await conn.end();
+    res.json({ list: rows, total });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

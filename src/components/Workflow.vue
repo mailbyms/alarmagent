@@ -422,6 +422,10 @@ async function testWorkflow() {
       return;
     }
   }
+  let testUuid = uuid;
+  if (!testUuid) {
+    testUuid = 'FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF';
+  }
   showTestDialog.value = true;
   testProgress.value = [];
   testStatus.value = 'pending';
@@ -464,7 +468,7 @@ async function testWorkflow() {
       testStatus.value = 'error';
       testError.value = '测试异常';
     };
-    xhr.send(JSON.stringify(workflow));
+  xhr.send(JSON.stringify({ uuid: testUuid, workflow }));
   } catch (e) {
     testStatus.value = 'error';
     testError.value = '测试异常';

@@ -11,7 +11,7 @@
  Target Server Version : 50730
  File Encoding         : 65001
 
- Date: 11/09/2025 14:28:47
+ Date: 12/09/2025 13:06:50
 */
 
 SET NAMES utf8mb4;
@@ -35,5 +35,34 @@ CREATE TABLE `agents`  (
   PRIMARY KEY (`idx`) USING BTREE,
   UNIQUE INDEX `uuid`(`uuid`) USING BTREE
 ) ENGINE = InnoDB AUTO_INCREMENT = 5 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '智能体管理表' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Table structure for crawler_shot
+-- ----------------------------
+DROP TABLE IF EXISTS `crawler_shot`;
+CREATE TABLE `crawler_shot`  (
+  `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `task_id` bigint(20) UNSIGNED NOT NULL COMMENT '关联的爬虫任务ID',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '保存时间',
+  `image_base64` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL COMMENT 'Base64编码的PNG图片',
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_task_id`(`task_id`) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 5 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '爬虫截图表' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Table structure for crawler_task
+-- ----------------------------
+DROP TABLE IF EXISTS `crawler_task`;
+CREATE TABLE `crawler_task`  (
+  `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `agent_uuid` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL COMMENT '智能体UUID',
+  `workflow_json` json NOT NULL COMMENT '工作流定义（JSON）',
+  `start_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '启动时间',
+  `end_time` datetime NULL DEFAULT NULL COMMENT '完成时间',
+  `status` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'pending' COMMENT '任务状态（pending/running/success/failed）',
+  `result` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL COMMENT '任务结果或异常信息',
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_agent_uuid`(`agent_uuid`) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 4 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '爬虫任务记录表' ROW_FORMAT = Dynamic;
 
 SET FOREIGN_KEY_CHECKS = 1;

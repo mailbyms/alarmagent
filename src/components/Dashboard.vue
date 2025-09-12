@@ -19,6 +19,11 @@
           :class="{ active: $route.path === '/workflow' }"
           @click="goPage('/workflow')"
         >流程编排</div>
+        <div
+          class="menu-item"
+          :class="{ active: $route.path === '/task-history' }"
+          @click="goPage('/task-history')"
+        >值班历史</div>
         <div class="menu-item">审核发布</div>
         <div class="menu-item">设置中心</div>
         <div class="menu-item">日志追踪</div>
@@ -30,6 +35,7 @@
           <template v-if="$route.path === '/'">智能体管理</template>
           <template v-else-if="$route.path === '/create-agent'">创建智能体</template>
           <template v-else-if="$route.path === '/workflow'">流程编排</template>
+          <template v-else-if="$route.path === '/task-history'">值班历史</template>
           <template v-else>智能体中心</template>
         </div>
         <div class="header-user">admin</div>
