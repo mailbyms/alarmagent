@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 // 判断是否开发模式
 const isDev = process.env.NODE_ENV === 'development';
 
@@ -83,11 +85,11 @@ app.post('/api/agents/:uuid/workflow', async (req, res) => {
 
 // 数据库连接配置
 const dbConfig = {
-  host: '10.13.3.8',
-  user: 'root', // 修改为你的MySQL用户名
-  password: 'root', // 修改为你的MySQL密码
-  database: 'alarmagent', // 修改为你的数据库名
-  port: 7306
+  host: process.env.DB_HOST || '10.13.3.8',
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || 'root',
+  database: process.env.DB_DATABASE || 'alarmagent',
+  port: process.env.DB_PORT || 7306
 };
 
 // 获取所有智能体，支持分页
@@ -115,6 +117,24 @@ app.get('/api/agents', async (req, res) => {
 });
 
 // 新增智能体
+app.post('/api/agents', async (req, res) => {
+  const { name, description, icon } = req.body;
+  if (!name) return res.status(400).json({ error: 'name required' });
+  const uuid = uuidv4();
+  const now = new Date();
+  try {
+    const conn = await mysql.createConnection(dbConfig);
+    await conn.execute(
+      'INSERT INTO agents (uuid, icon, name, description, status, created_at, updated_at, screenshot_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 
+      [uuid, icon || '🤖', name, description || '', 'running', now, now, 0]
+    );
+    await conn.end();
+    res.json({ uuid });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 
 app.get('/api/workflow/crawler/test', (req, res) => {
   res.status(405).end('请使用 POST');
