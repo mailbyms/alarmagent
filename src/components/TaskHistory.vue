@@ -17,7 +17,9 @@
         </thead>
         <tbody>
           <tr v-for="task in tasks" :key="task.id">
-            <td>{{ task.id }}</td>
+            <td>
+              <span class="task-id-link" @click="showShots(task.id)">{{ task.id }}</span>
+            </td>
             <td>{{ task.agent_uuid }}</td>
             <td>{{ task.start_time }}</td>
             <td>{{ task.end_time }}</td>
@@ -37,18 +39,28 @@
         <span class="page-info">第 {{ page }} / {{ totalPages }} 页</span>
         <button class="page-btn" :disabled="page===totalPages" @click="changePage(page+1)">下一页</button>
       </div>
+      <!-- 弹窗组件始终挂载，只用 visible 控制显示 -->
+      <TaskShotsDialog :taskId="currentTaskId" v-model:visible="showShotsDialog" />
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, computed } from 'vue';
+import TaskShotsDialog from './TaskShotsDialog.vue';
 const tasks = ref([]);
 const loading = ref(false);
 const page = ref(1);
 const pageSize = 10;
 const total = ref(0);
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize)));
+
+const showShotsDialog = ref(false);
+const currentTaskId = ref(null);
+function showShots(taskId) {
+  currentTaskId.value = taskId;
+  showShotsDialog.value = true;
+}
 
 async function fetchTasks() {
   loading.value = true;
@@ -128,6 +140,12 @@ onMounted(fetchTasks);
   text-overflow: ellipsis;
   vertical-align: middle;
   cursor: pointer;
+}
+.task-id-link {
+  color: #1976d2;
+  cursor: pointer;
+  text-decoration: underline;
+  font-weight: bold;
 }
 .common-table thead {
   background: #e3f0fd;

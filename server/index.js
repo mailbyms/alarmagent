@@ -309,6 +309,20 @@ app.get('/api/crawler/tasks', async (req, res) => {
   }
 });
 
+// 获取指定任务的截图
+app.get('/api/crawler/shots', async (req, res) => {
+  const { taskId } = req.query;
+  if (!taskId) return res.json([]);
+  try {
+    const conn = await mysql.createConnection(dbConfig);
+    const [rows] = await conn.execute('SELECT id, task_id, created_at, image_base64 FROM crawler_shot WHERE task_id = ? ORDER BY id ASC', [taskId]);
+    await conn.end();
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // 启动服务
 const PORT = 3001;
 app.listen(PORT, () => {
