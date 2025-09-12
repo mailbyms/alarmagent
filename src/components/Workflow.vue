@@ -10,19 +10,32 @@
     <div v-if="!uuid" style="color:#f44336;font-weight:bold;margin-bottom:12px;">当前为自由体验模式，不支持更新到智能体</div>
     <div class="workflow-canvas-wrapper" ref="canvasContainer" @contextmenu.prevent="handleContextMenu" @click="handleClick">
   <div v-if="showDrawer" class="property-drawer" :style="drawerFocusColorStyle">
-      <div class="drawer-header">
-        <span :style="{color: drawerColor}">属性编辑</span>
-        <span class="drawer-close" @click="showDrawer=false">×</span>
+      <div class="drawer-header" style="flex-direction:column;align-items:flex-start;gap:0;">
+        <div style="width:100%;display:flex;justify-content:space-between;align-items:center;">
+          <span :style="{color: drawerColor}">属性编辑</span>
+          <span class="drawer-close" @click="showDrawer=false">×</span>
+        </div>
+        <span v-if="showDrawer && drawerNode" style="font-size:12px;color:#888;margin-top:2px;user-select:text;">ID: {{ drawerNode.id || (drawerNode.getId && drawerNode.getId()) }}</span>
       </div>
       <div style="margin-bottom: 10px;">
         <label :style="{color: drawerColor, fontSize: '14px'}">节点名称：</label>
         <input v-model="drawerData.displayName" type="text" style="{color: drawerColor}" />
       </div>
-      <div v-if="drawerNodeType==='openwebpage'">
+      <div v-if="drawerNodeType==='loginweb'">
+        <label :style="{color: drawerColor}">登录网址：</label>
+        <input v-model="drawerData.url" type="text" placeholder="https://" />
+        <label :style="{color: drawerColor}">用户名选择器：</label>
+        <input v-model="drawerData.usernameSelector" type="text" placeholder="#username" />
+        <label :style="{color: drawerColor}">用户名：</label>
+        <input v-model="drawerData.username" type="text" placeholder="admin" />
+        <label :style="{color: drawerColor}">密码选择器：</label>
+        <input v-model="drawerData.passwordSelector" type="text" placeholder="#password" />
+        <label :style="{color: drawerColor}">密码：</label>
+        <input v-model="drawerData.password" type="text" placeholder="******" />
+      </div>
+      <div v-else-if="drawerNodeType==='openwebpage'">
         <label :style="{color: drawerColor}">目标网址：</label>
         <input v-model="drawerData.url" type="text" placeholder="https://" />
-        <label :style="{color: drawerColor}">新窗口打开：</label>
-        <input type="checkbox" v-model="drawerData.newTab" />
         <label :style="{color: drawerColor}">等待元素选择器：</label>
         <input v-model="drawerData.waitSelector" type="text" placeholder="如 #main" />
       </div>
@@ -31,12 +44,6 @@
         <input v-model="drawerData.selector" type="text" placeholder="#input" />
         <label :style="{color: drawerColor}">输入内容：</label>
         <input v-model="drawerData.text" type="text" />
-        <label :style="{color: drawerColor}">输入类型：</label>
-        <select v-model="drawerData.inputType">
-          <option value="text">文本</option>
-          <option value="password">密码</option>
-          <option value="number">数字</option>
-        </select>
         <label :style="{color: drawerColor}">每字符延迟(ms)：</label>
         <input v-model.number="drawerData.delay" type="number" min="0" />
       </div>
@@ -92,6 +99,7 @@ const NODE_COLORS = [
   '#ff8feaff',  
   '#ffd600',  
   '#ca7301ff',  
+  '#15a892ff',  
 ];
 import TopLoadingBar from './TopLoadingBar.vue';
 import { ElMessage } from 'element-plus';
@@ -100,6 +108,7 @@ import SF from 'simple-flow-web';
 import 'simple-flow-web/lib/sf.css';
 
 import beginIcon from '../assets/icons/node/begin.svg';
+import loginIcon from '../assets/icons/node/login.svg';
 import whiteGlobeIcon from '../assets/icons/node/white-globe.svg';
 import keyboardIcon from '../assets/icons/node/keyboard.svg';
 import mouseIcon from '../assets/icons/node/mouse.svg';
@@ -126,6 +135,8 @@ function openDrawer(node) {
     console.warn('[Workflow] openDrawer: node is null');
     return;
   }
+  // 清空属性，防止残留
+  for (const k in drawerData) delete drawerData[k];
   drawerNodeType.value = node.getType();
   Object.assign(drawerData, node.getAttrObject());
   drawerData.displayName = node.getDisplayName ? node.getDisplayName() : (node.displayName || '');
@@ -356,7 +367,7 @@ function exportWorkflow() {
   }
 }
 
-const nodeTypes = ref([
+const nodeTypes = ref([  
   {
     type: 'begin',
     displayName: '开始',
@@ -369,6 +380,28 @@ const nodeTypes = ref([
       defaults:{},
       icon: beginIcon,
       inputs:0,
+      outputs:1,
+      width:150,
+      height: 40
+    }
+  },
+  {
+    type: 'loginweb',
+    displayName: '登录网站',
+    options: {
+      align:'left',
+      category: 'automation',
+      bgColor: NODE_COLORS[7],
+      color:'#fff',
+      defaults:{
+        url: '', // 登录网址
+        usernameSelector: '', // 用户名输入框选择器
+        username: '', // 用户名
+        passwordSelector: '', // 密码输入框选择器
+        password: '' // 密码
+      },
+      icon: loginIcon,
+      inputs:1,
       outputs:1,
       width:150,
       height: 40
@@ -423,7 +456,7 @@ const nodeTypes = ref([
       color:'#fff',
       defaults:{
         selector: '', // 点击目标元素选择器
-        clickType: 'left', // 点击类型（left/right/double）
+        clickType: 'left', // 点击类型（left/right/double），默认单击
         waitFor: '' // 点击前等待的元素选择器
       },
       icon: mouseIcon,
@@ -546,7 +579,7 @@ onMounted(() => {
           if (node) {
             const type = node.getType();
             console.log('[Workflow] Node type on dblclick:', type);
-            if ([ 'openwebpage', 'input', 'click', 'delay' ].includes(type)) {
+            if ([ 'openwebpage', 'input', 'click', 'delay', 'loginweb' ].includes(type)) {
               openDrawer(node);
             } else {
               console.log('[Workflow] Node type not handled for drawer:', type);

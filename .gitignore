@@ -34,3 +34,4 @@ logs/
 coverage/
 
 src/simple-flow-web/
+src/crawler/
