@@ -7,142 +7,127 @@
 		"background": "#fff"
 	},
 	"a": {},
-	"d": [{
-		"type": "begin",
-		"id": "5d7b3ff688ccf030",
-		"p": {
-			"displayName": "开始",
-			"position": {
-				"x": 75,
-				"y": 32
+	"d": [
+		{
+			"type": "begin",
+			"id": "5d7b3ff688ccf030",
+			"p": {
+				"displayName": "开始",
+				"position": {
+					"x": 75,
+					"y": 32
+				},
+				"width": 150,
+				"height": 40
 			},
-			"width": 150,
-			"height": 40
+			"a": {},
+			"wires": [
+				[
+					"e124c506e8c03e86"
+				]
+			]
 		},
-		"a": {},
-		"wires": [
-			["462a160f5baa6313"]
-		]
-	}, {
-		"type": "input",
-		"id": "19e30af2818b23cc",
-		"p": {
-			"displayName": "模拟输入",
-			"position": {
-				"x": 358,
-				"y": 141
+		{
+			"type": "screenshot",
+			"id": "875ecce98125ca19",
+			"p": {
+				"displayName": "截图保存",
+				"position": {
+					"x": 478,
+					"y": 321
+				},
+				"width": 150,
+				"height": 40
 			},
-			"width": 150,
-			"height": 40
+			"a": {},
+			"wires": [
+				[
+					"90dfadca30558acf"
+				]
+			]
 		},
-		"a": {
-			"delay": 1000,
-			"url": "https://produce-service-frontend.dev.dm-ai.com/login",
-			"selector": "#login_username",
-			"text": "admin",
-			"inputType": "text"
-		},
-		"wires": [
-			["3643f4d2e23c99c5"]
-		]
-	}, {
-		"type": "screenshot",
-		"id": "875ecce98125ca19",
-		"p": {
-			"displayName": "截图保存",
-			"position": {
-				"x": 638,
-				"y": 494
+		{
+			"type": "finish",
+			"id": "90dfadca30558acf",
+			"p": {
+				"displayName": "结束",
+				"position": {
+					"x": 701,
+					"y": 381
+				},
+				"width": 150,
+				"height": 40
 			},
-			"width": 150,
-			"height": 40
+			"a": {},
+			"wires": []
 		},
-		"a": {},
-		"wires": [
-			["90dfadca30558acf"]
-		]
-	}, {
-		"type": "finish",
-		"id": "90dfadca30558acf",
-		"p": {
-			"displayName": "结束",
-			"position": {
-				"x": 826,
-				"y": 610
+		{
+			"type": "openwebpage",
+			"id": "462a160f5baa6313",
+			"p": {
+				"displayName": "打开网页",
+				"position": {
+					"x": 481,
+					"y": 121
+				},
+				"width": 150,
+				"height": 40
 			},
-			"width": 150,
-			"height": 40
-		},
-		"a": {},
-		"wires": []
-	}, {
-		"type": "click",
-		"id": "90f96012a8bbef18",
-		"p": {
-			"displayName": "模拟点击2",
-			"position": {
-				"x": 359,
-				"y": 338
+			"a": {
+				"delay": 1000,
+				"url": "https://produce-service-frontend.dev.dm-ai.com/login"
 			},
-			"width": 150,
-			"height": 40
+			"wires": [
+				[
+					"71050b020eb51926"
+				]
+			]
 		},
-		"a": {},
-		"wires": [
-			["71050b020eb51926"]
-		]
-	}, {
-		"type": "openwebpage",
-		"id": "462a160f5baa6313",
-		"p": {
-			"displayName": "打开网页",
-			"position": {
-				"x": 275,
-				"y": 32
+		{
+			"type": "delay",
+			"id": "71050b020eb51926",
+			"p": {
+				"displayName": "定时等候",
+				"position": {
+					"x": 479,
+					"y": 221
+				},
+				"width": 150,
+				"height": 40
 			},
-			"width": 150,
-			"height": 40
-		},
-		"a": {
-			"delay": 1000,
-			"url": "https://produce-service-frontend.dev.dm-ai.com/login"
-		},
-		"wires": [
-			["19e30af2818b23cc"]
-		]
-	}, {
-		"type": "input",
-		"id": "3643f4d2e23c99c5",
-		"p": {
-			"displayName": "模拟输入",
-			"position": {
-				"x": 358,
-				"y": 241
+			"a": {
+				"delay": 1000
 			},
-			"width": 150,
-			"height": 40
+			"wires": [
+				[
+					"875ecce98125ca19"
+				]
+			]
 		},
-		"a": {},
-		"wires": [
-			["90f96012a8bbef18"]
-		]
-	}, {
-		"type": "delay",
-		"id": "71050b020eb51926",
-		"p": {
-			"displayName": "定时等候",
-			"position": {
-				"x": 615,
-				"y": 339
+		{
+			"type": "loginweb",
+			"id": "e124c506e8c03e86",
+			"p": {
+				"displayName": "登录网站",
+				"position": {
+					"x": 283,
+					"y": 33
+				},
+				"width": 150,
+				"height": 40
 			},
-			"width": 150,
-			"height": 40
-		},
-		"a": {
-			"delay": 1000
-		},
-		"wires": [
-			["875ecce98125ca19"]
-		]
-	}]
+			"a": {
+				"url": "https://produce-service-frontend.dev.dm-ai.com/login",
+				"usernameSelector": "#login_username",
+				"passwordSelector": "#login_password",
+				"username": "admin",
+				"password": "Dmai@2024"
+			},
+			"wires": [
+				[
+					"462a160f5baa6313"
+				]
+			]
+		}
+	]
 }

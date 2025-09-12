@@ -4,7 +4,8 @@
   <div class="workflow-root">
     <div class="header-bar">
       <button @click="importWorkflow">导入</button>
-      <button @click="exportWorkflow">导出</button>
+  <button @click="exportWorkflow">导出</button>
+  <button @click="testWorkflow" style="margin-left:8px;background:#1976d2;color:#fff;">测试</button>
   <button @click="saveWorkflow" :disabled="!uuid" :class="{disabled:!uuid}" style="margin-left:auto;background:#43a047;border-color:#43a047;">更新到智能体</button>
     </div>
     <div v-if="!uuid" style="color:#f44336;font-weight:bold;margin-bottom:12px;">当前为自由体验模式，不支持更新到智能体</div>
@@ -364,6 +365,45 @@ function exportWorkflow() {
   if (dataModel) {
     const jsonData = dataModel.serialize();
     downloadJSON(jsonData, 'workflow.json');
+  }
+}
+
+// 测试流程，调用后端爬虫接口
+async function testWorkflow() {
+  if (!dataModel) {
+    ElMessage.error('流程未初始化');
+    return;
+  }
+  loading.value = true;
+  try {
+    let workflow = dataModel.serialize();
+    // 如果 serialize 返回的是字符串，则先转为对象
+    if (typeof workflow === 'string') {
+      try {
+        workflow = JSON.parse(workflow);
+      } catch (e) {
+        ElMessage.error('序列化数据格式错误');
+        loading.value = false;
+        return;
+      }
+    }
+    const res = await fetch('/api/workflow/crawler/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(workflow)
+    });
+    const data = await res.json();
+    if (res.ok) {
+      ElMessage.success('测试完成');
+      // 简单弹窗展示结果
+      alert('测试结果:\n' + (data.steps ? data.steps.map(s => `${s.type}: ${s.status || ''}`).join('\n') : JSON.stringify(data)));
+    } else {
+      ElMessage.error('测试失败: ' + (data.error || '未知错误'));
+    }
+  } catch (e) {
+    ElMessage.error('测试异常');
+  } finally {
+    loading.value = false;
   }
 }
 
