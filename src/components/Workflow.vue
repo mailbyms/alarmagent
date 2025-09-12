@@ -687,11 +687,7 @@ onMounted(() => {
           if (node) {
             const type = node.getType();
             console.log('[Workflow] Node type on dblclick:', type);
-            if ([ 'openwebpage', 'input', 'click', 'delay', 'loginweb' ].includes(type)) {
-              openDrawer(node);
-            } else {
-              console.log('[Workflow] Node type not handled for drawer:', type);
-            }
+            openDrawer(node);            
           } else {
             console.warn('[Workflow] No node found on dblclick');
           }
