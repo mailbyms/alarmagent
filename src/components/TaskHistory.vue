@@ -21,8 +21,8 @@
               <span class="task-id-link" @click="showShots(task.id)">{{ task.id }}</span>
             </td>
             <td>{{ task.agent_uuid }}</td>
-            <td>{{ task.start_time }}</td>
-            <td>{{ task.end_time }}</td>
+            <td>{{ formatLocalTime(task.start_time) }}</td>
+            <td>{{ formatLocalTime(task.end_time) }}</td>
             <td>
               <span :class="['status', task.status]">
                 {{ task.status === 'success' ? '成功' : (task.status === 'failed' ? '失败' : (task.status === 'running' ? '进行中' : task.status)) }}
@@ -47,6 +47,7 @@
 
 <script setup>
 import { ref, onMounted, computed } from 'vue';
+import { formatLocalTime } from '../utils/format';
 import TaskShotsDialog from './TaskShotsDialog.vue';
 const tasks = ref([]);
 const loading = ref(false);

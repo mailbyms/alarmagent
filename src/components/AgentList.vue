@@ -40,8 +40,8 @@
                 {{ agent.status === 'running' ? '运行中' : '已停止' }}
               </span>
             </td>
-            <td>{{ agent.created_at }}</td>
-            <td>{{ agent.updated_at }}</td>
+            <td>{{ formatLocalTime(agent.created_at) }}</td>
+            <td>{{ formatLocalTime(agent.updated_at) }}</td>
             <td>{{ agent.screenshot_count }}</td>
               <td>
                 <span style="display:none">{{ agent.uuid }}</span>
@@ -72,6 +72,7 @@
 
 <script setup>
 import { ElMessageBox, ElMessage } from 'element-plus';
+import { formatLocalTime } from '../utils/format';
 async function confirmDelete(agent) {
   try {
     await ElMessageBox.confirm(`确定要删除智能体 “${agent.name}” 吗？`, '删除确认', {
