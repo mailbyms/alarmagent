@@ -83,11 +83,52 @@
       <div class="menu-item" @click="deleteWire">删除连线</div>
     </div>
   </div>
+
+  <!-- 测试进度弹窗 -->
+  <el-dialog v-model="showTestDialog" title="流程测试进度" width="500px" :close-on-click-modal="false" :close-on-press-escape="false" :show-close="testStatus!=='pending'">
+    <template #title>
+      <span>流程测试进度</span>
+      <el-icon v-if="testStatus==='pending'" :size="18" class="is-loading" style="margin-left:8px;vertical-align:middle;"><Loading /></el-icon>
+      <span v-if="testStatus==='success'" style="color:#43a047;font-size:14px;margin-left:8px;vertical-align:middle;">[已完成]</span>
+    </template>
+    <div style="max-height:350px;overflow:auto;" ref="testTimelineBox">
+      <el-timeline>
+        <el-timeline-item
+          v-for="(step, idx) in testProgress"
+          :key="idx"
+          :type="step.status && step.status.startsWith('error') ? 'danger' : (step.status && step.status.includes('done') ? 'success' : 'info')"
+          :color="step.status && step.status.startsWith('error') ? '#f56c6c' : (step.status && step.status.includes('done') ? '#67c23a' : '#409eff')"
+          
+        >
+          <div style="white-space:pre-line;">{{ step.displayName || step.type }}<br><span style="font-size:12px;color:#888;">[{{ step._localTime }}] {{ step.status }}</span></div>
+        </el-timeline-item>
+      </el-timeline>
+    </div>
+    <div v-if="testStatus==='success'" style="color:#43a047;text-align:center;margin-top:10px;">测试完成</div>
+    <div v-if="testStatus==='error'" style="color:#f56c6c;text-align:center;margin-top:10px;">{{ testError }}</div>
+    <template #footer>
+      <el-button v-if="testStatus!=='pending'" @click="showTestDialog=false">关闭</el-button>
+    </template>
+  </el-dialog>
 </template>
 
 
 <script setup>
-import { ref, onMounted, reactive, computed } from 'vue';
+import { ref, onMounted, reactive, computed, nextTick, watch } from 'vue';
+// 测试进度弹窗相关响应式变量
+const showTestDialog = ref(false);
+const testProgress = ref([]);
+const testStatus = ref('pending'); // pending/success/error
+const testError = ref('');
+const testTimelineBox = ref(null);
+watch(testProgress, async () => {
+  await nextTick();
+  if (testTimelineBox.value) {
+    testTimelineBox.value.scrollTop = testTimelineBox.value.scrollHeight;
+  }
+});
+import { ElMessage, ElDialog, ElTimeline, ElTimelineItem } from 'element-plus';
+import { Loading } from '@element-plus/icons-vue';
 
 const DEFAULT_DRAWER_COLOR = '#1976d2';
 
@@ -103,7 +144,6 @@ const NODE_COLORS = [
   '#15a892ff',  
 ];
 import TopLoadingBar from './TopLoadingBar.vue';
-import { ElMessage } from 'element-plus';
 import { useRoute } from 'vue-router';
 import SF from 'simple-flow-web';
 import 'simple-flow-web/lib/sf.css';
@@ -122,7 +162,6 @@ const uuid = route.query.uuid;
 const loading = ref(false);
 
 // 属性编辑抽屉相关
-import {watch } from 'vue';
 const showDrawer = ref(false);
 const drawerData = reactive({});
 const drawerNodeType = ref('');
@@ -374,36 +413,61 @@ async function testWorkflow() {
     ElMessage.error('流程未初始化');
     return;
   }
-  loading.value = true;
+  let workflow = dataModel.serialize();
+  if (typeof workflow === 'string') {
+    try {
+      workflow = JSON.parse(workflow);
+    } catch (e) {
+      ElMessage.error('序列化数据格式错误');
+      return;
+    }
+  }
+  showTestDialog.value = true;
+  testProgress.value = [];
+  testStatus.value = 'pending';
+  testError.value = '';
   try {
-    let workflow = dataModel.serialize();
-    // 如果 serialize 返回的是字符串，则先转为对象
-    if (typeof workflow === 'string') {
-      try {
-        workflow = JSON.parse(workflow);
-      } catch (e) {
-        ElMessage.error('序列化数据格式错误');
-        loading.value = false;
-        return;
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/workflow/crawler/test', true);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    let lastIndex = 0;
+    xhr.onreadystatechange = function() {
+      if (xhr.readyState === 3 || xhr.readyState === 4) {
+        const text = xhr.responseText;
+        let idx = lastIndex;
+        while (true) {
+          const next = text.indexOf('\n\n', idx);
+          if (next === -1) break;
+          const chunk = text.substring(idx, next).trim();
+          idx = next + 2;
+          if (chunk.startsWith('data:')) {
+            try {
+              const json = JSON.parse(chunk.slice(5).trim());
+              if (json.done) {
+                testStatus.value = 'success';
+              } else if (json.error) {
+                testStatus.value = 'error';
+                testError.value = json.error;
+              } else {
+                testProgress.value.push({
+                  ...json,
+                  _localTime: new Date().toLocaleTimeString()
+                });
+              }
+            } catch {}
+          }
+        }
+        lastIndex = idx;
       }
-    }
-    const res = await fetch('/api/workflow/crawler/test', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(workflow)
-    });
-    const data = await res.json();
-    if (res.ok) {
-      ElMessage.success('测试完成');
-      // 简单弹窗展示结果
-      alert('测试结果:\n' + (data.steps ? data.steps.map(s => `${s.type}: ${s.status || ''}`).join('\n') : JSON.stringify(data)));
-    } else {
-      ElMessage.error('测试失败: ' + (data.error || '未知错误'));
-    }
+    };
+    xhr.onerror = function() {
+      testStatus.value = 'error';
+      testError.value = '测试异常';
+    };
+    xhr.send(JSON.stringify(workflow));
   } catch (e) {
-    ElMessage.error('测试异常');
-  } finally {
-    loading.value = false;
+    testStatus.value = 'error';
+    testError.value = '测试异常';
   }
 }
 

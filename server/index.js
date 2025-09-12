@@ -69,82 +69,35 @@ app.get('/api/agents', async (req, res) => {
 });
 
 // 新增智能体
-app.post('/api/agents', async (req, res) => {
-  const { name, description, icon } = req.body;
-  if (!name) return res.status(400).json({ error: 'name required' });
-  const uuid = uuidv4();
-  const now = new Date();
-  try {
-    const conn = await mysql.createConnection(dbConfig);
-    await conn.execute(
-      'INSERT INTO agents (uuid, icon, name, description, status, created_at, updated_at, screenshot_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 
-      [uuid, icon || '🤖', name, description || '', 'running', now, now, 0]
-    );
-    await conn.end();
-    res.json({ uuid });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+
+app.get('/api/workflow/crawler/test', (req, res) => {
+  res.status(405).end('请使用 POST');
 });
 
-
-// 反序列化 workflow 并按连线顺序打印节点
-app.post('/api/workflow/print', (req, res) => {
-  const workflow = req.body;
-  if (!workflow || !workflow.d || !Array.isArray(workflow.d)) {
-    return res.status(400).json({ error: '参数格式错误，需包含 d 节点数组' });
-  }
-  const nodes = workflow.d;
-  // 构建 id->node 映射
-  const nodeMap = {};
-  nodes.forEach(n => { nodeMap[n.id] = n; });
-  // 找到 begin 节点
-  const begin = nodes.find(n => n.type === 'begin');
-  if (!begin) {
-    return res.status(400).json({ error: '未找到 begin 节点' });
-  }
-  // 按连线顺序遍历（适配 wires: [[id]] 结构）
-  const ordered = [];
-  const visited = new Set();
-  function visit(node) {
-    if (!node || visited.has(node.id)) return;
-    ordered.push(node);
-    visited.add(node.id);
-    if (Array.isArray(node.wires)) {
-      node.wires.forEach(arr => {
-        if (Array.isArray(arr)) {
-          arr.forEach(id => {
-            if (typeof id === 'string') visit(nodeMap[id]);
-          });
-        } else if (typeof arr === 'string') {
-          visit(nodeMap[arr]);
-        }
-      });
-    }
-  }
-  visit(begin);
-  // 打印节点，显示主属性
-  ordered.forEach(n => {
-    const main = `[${n.type}] id=${n.id} displayName=${n.p && n.p.displayName}`;
-    const extra = n.a && Object.keys(n.a).length > 0 ? ` a=${JSON.stringify(n.a)}` : '';
-    console.log(main + extra);
-  });
-  res.json({ ordered: ordered.map(n => ({ id: n.id, type: n.type, displayName: n.p && n.p.displayName, a: n.a })) });
-});
-
-
-// 按 workflow 顺序执行爬虫步骤
 app.post('/api/workflow/crawler/test', async (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders && res.flushHeaders();
+
+  function sendSSE(data) {
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
+  }
+
   const workflow = req.body;
   if (!workflow || !workflow.d || !Array.isArray(workflow.d)) {
-    return res.status(400).json({ error: '参数格式错误，需包含 d 节点数组' });
+    sendSSE({ error: '参数格式错误，需包含 d 节点数组' });
+    res.end();
+    return;
   }
   const nodes = workflow.d;
   const nodeMap = {};
   nodes.forEach(n => { nodeMap[n.id] = n; });
   const begin = nodes.find(n => n.type === 'begin');
   if (!begin) {
-    return res.status(400).json({ error: '未找到 begin 节点' });
+    sendSSE({ error: '未找到 begin 节点' });
+    res.end();
+    return;
   }
   // 顺序遍历
   const ordered = [];
@@ -165,99 +118,94 @@ app.post('/api/workflow/crawler/test', async (req, res) => {
   }
   visit(begin);
 
-  // 执行爬虫步骤
   let browser, context, page;
-  const stepResults = [];
   try {
     for (const node of ordered) {
       let result = { id: node.id, type: node.type, displayName: node.p && node.p.displayName };
-      if (node.type === 'loginweb') {
-        // 登录网站节点
-        const { url, usernameSelector, passwordSelector, username, password } = node.a || {};
-        browser = await chromium.launch({ headless: true });
-        context = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
-        page = await context.newPage();
-        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
-        // 填写用户名
-        if (usernameSelector && username) {
-          await page.locator(usernameSelector).waitFor({ state: 'visible', timeout: 10000 });
-          await page.fill(usernameSelector, username);
-        }
-        // 填写密码
-        if (passwordSelector && password) {
-          await page.locator(passwordSelector).waitFor({ state: 'visible', timeout: 10000 });
-          await page.fill(passwordSelector, password);
-        }
-        // 提交表单（尝试回车或点击登录按钮）
-        await page.keyboard.press('Enter');
-        await page.waitForLoadState('networkidle', { timeout: 20000 }).catch(() => {});
-        result.status = 'loginweb done';
-      } else if (node.type === 'openwebpage') {
-        // 打开网页
-        const { url } = node.a || {};
-        if (page && url) {
-          await page.goto(url, { waitUntil: 'networkidle', timeout: 45000 });
-          result.status = 'openwebpage done';
-        } else {
-          result.status = 'skip (no page or url)';
-        }
-      } else if (node.type === 'delay') {
-        // 等待
-        const { delay } = node.a || {};
-        if (page && delay) {
-          await page.waitForTimeout(Number(delay));
-          result.status = `delay ${delay}ms done`;
-        } else {
-          result.status = 'skip (no page or delay)';
-        }
-      } else if (node.type === 'screenshot') {
-        // 截图
-        if (page) {
-          const ts = Date.now();
-          const shotPath = path.join('shots', `${ts}.png`);
-          ensureDir('shots');
-          await page.screenshot({ path: shotPath, fullPage: true });
-          result.status = 'screenshot saved';
-          result.shotPath = shotPath;
-        } else {
-          result.status = 'skip (no page)';
-        }
-      } else if (node.type === 'click') {
-        // 点击
-        const { selector, clickType } = node.a || {};
-        if (page && selector) {
-          await page.locator(selector).waitFor({ state: 'visible', timeout: 10000 });
-          if (clickType === 'right') {
-            await page.click(selector, { button: 'right' });
-          } else if (clickType === 'double') {
-            await page.dblclick(selector);
-          } else {
-            await page.click(selector);
+      try {
+        if (node.type === 'loginweb') {
+          const { url, usernameSelector, passwordSelector, username, password } = node.a || {};
+          browser = await chromium.launch({ headless: true });
+          context = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
+          page = await context.newPage();
+          await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
+          if (usernameSelector && username) {
+            await page.locator(usernameSelector).waitFor({ state: 'visible', timeout: 10000 });
+            await page.fill(usernameSelector, username);
           }
-          result.status = 'click done';
+          if (passwordSelector && password) {
+            await page.locator(passwordSelector).waitFor({ state: 'visible', timeout: 10000 });
+            await page.fill(passwordSelector, password);
+          }
+          await page.keyboard.press('Enter');
+          await page.waitForLoadState('networkidle', { timeout: 20000 }).catch(() => {});
+          result.status = 'loginweb done';
+        } else if (node.type === 'openwebpage') {
+          const { url } = node.a || {};
+          if (page && url) {
+            await page.goto(url, { waitUntil: 'networkidle', timeout: 45000 });
+            result.status = 'openwebpage done';
+          } else {
+            result.status = 'skip (no page or url)';
+          }
+        } else if (node.type === 'delay') {
+          const { delay } = node.a || {};
+          if (page && delay) {
+            await page.waitForTimeout(Number(delay));
+            result.status = `delay ${delay}ms done`;
+          } else {
+            result.status = 'skip (no page or delay)';
+          }
+        } else if (node.type === 'screenshot') {
+          if (page) {
+            const ts = Date.now();
+            const shotPath = path.join('shots', `${ts}.png`);
+            ensureDir('shots');
+            await page.screenshot({ path: shotPath, fullPage: true });
+            result.status = 'screenshot saved';
+            result.shotPath = shotPath;
+          } else {
+            result.status = 'skip (no page)';
+          }
+        } else if (node.type === 'click') {
+          const { selector, clickType } = node.a || {};
+          if (page && selector) {
+            await page.locator(selector).waitFor({ state: 'visible', timeout: 10000 });
+            if (clickType === 'right') {
+              await page.click(selector, { button: 'right' });
+            } else if (clickType === 'double') {
+              await page.dblclick(selector);
+            } else {
+              await page.click(selector);
+            }
+            result.status = 'click done';
+          } else {
+            result.status = 'skip (no page or selector)';
+          }
+        } else if (node.type === 'input') {
+          const { selector, text } = node.a || {};
+          if (page && selector && text !== undefined) {
+            await page.locator(selector).waitFor({ state: 'visible', timeout: 10000 });
+            await page.fill(selector, text);
+            result.status = 'input done';
+          } else {
+            result.status = 'skip (no page, selector or text)';
+          }
         } else {
-          result.status = 'skip (no page or selector)';
+          result.status = 'skip (not implemented)';
         }
-      } else if (node.type === 'input') {
-        // 输入
-        const { selector, text } = node.a || {};
-        if (page && selector && text !== undefined) {
-          await page.locator(selector).waitFor({ state: 'visible', timeout: 10000 });
-          await page.fill(selector, text);
-          result.status = 'input done';
-        } else {
-          result.status = 'skip (no page, selector or text)';
-        }
-      } else {
-        result.status = 'skip (not implemented)';
+      } catch (stepErr) {
+        result.status = 'error: ' + stepErr.message;
       }
-      stepResults.push(result);
+      sendSSE(result);
     }
     if (browser) await browser.close();
-    res.json({ steps: stepResults });
+    sendSSE({ done: true });
+    res.end();
   } catch (e) {
     if (browser) await browser.close();
-    res.status(500).json({ error: e.message, steps: stepResults });
+    sendSSE({ error: e.message });
+    res.end();
   }
 });
 
