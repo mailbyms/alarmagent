@@ -711,8 +711,10 @@ onMounted(() => {
       loading.value = true;
       fetch(`/api/agents?uuid=${uuid}`)
         .then(res => res.json())
-        .then(agents => {
-          if (Array.isArray(agents) && agents.length > 0) {
+        .then(result => {
+          // 从 result.list 取出
+          const agents = Array.isArray(result.list) ? result.list : [];
+          if (agents.length > 0) {
             const wf = agents[0].workflow;
             if (wf && (typeof wf === 'object' ? Object.keys(wf).length > 0 : (typeof wf === 'string' && wf.trim() !== '' && wf !== '{}'))) {
               dataModel.deserialize(typeof wf === 'string' ? JSON.parse(wf) : wf);
