@@ -3,6 +3,7 @@
     <div class="header-bar" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
       <button class="refresh-btn" @click="fetchTasks">刷新</button>
     </div>
+    <TopLoadingBar :loading="loading" />
     <div class="table-section">
       <table class="common-table task-table">
         <thead>
@@ -49,6 +50,7 @@
 import { ref, onMounted, computed } from 'vue';
 import { formatLocalTime } from '../utils/format';
 import TaskShotsDialog from './TaskShotsDialog.vue';
+import TopLoadingBar from './TopLoadingBar.vue';
 const tasks = ref([]);
 const loading = ref(false);
 const page = ref(1);

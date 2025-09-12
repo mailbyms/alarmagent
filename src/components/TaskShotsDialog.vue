@@ -1,7 +1,7 @@
 <template>
   <el-dialog :model-value="visible" @update:model-value="emit('update:visible', $event)" title="任务截图" width="700px" :close-on-click-modal="true">
-    <div v-if="loading" style="text-align:center;padding:40px 0;">加载中...</div>
-    <div v-else-if="shots.length === 0" style="text-align:center;padding:40px 0;">暂无截图</div>
+    <TopLoadingBar :loading="loading" />
+    <div v-if="shots.length === 0 && !loading" style="text-align:center;padding:40px 0;">暂无截图</div>
     <div v-else>
       <!-- 轮播模式：图片多于5张 -->
       <div v-if="shots.length > 5" class="shot-carousel">
@@ -28,6 +28,7 @@
 
 <script setup>
 import { ref, watch } from 'vue';
+import TopLoadingBar from './TopLoadingBar.vue';
 import ElImageViewer from 'element-plus/es/components/image-viewer/index.mjs';
 const props = defineProps({
   taskId: { type: [Number, String], required: true },
