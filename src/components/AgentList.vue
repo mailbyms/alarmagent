@@ -25,7 +25,15 @@
           <tr v-for="agent in agents" :key="agent.uuid">
             <td>{{ agent.icon }}</td>
             <td>
-              <span :title="agent.description || '没有简介'">{{ agent.name }}</span>
+              <span v-if="editId !== agent.uuid" :title="agent.description || '没有简介'" @dblclick="startEdit(agent)">{{ agent.name }}</span>
+              <input v-else
+                v-model="editName"
+                @blur="saveEdit(agent)"
+                @keyup.enter="saveEdit(agent)"
+                @keyup.esc="cancelEdit"
+                class="edit-input"
+                :maxlength="32"
+                style="width:120px;" />
             </td>
             <td>
               <span :class="['status', agent.status]">
@@ -48,6 +56,7 @@
                   v-else
                   style="margin-left: 8px; background: #43a047;"
                 >启动</button>
+                <button class="btn delete-btn" style="margin-left: 8px; background: #e53935;" @click="confirmDelete(agent)">删除</button>
               </td>
           </tr>
         </tbody>
@@ -62,6 +71,29 @@
 </template>
 
 <script setup>
+import { ElMessageBox, ElMessage } from 'element-plus';
+async function confirmDelete(agent) {
+  try {
+    await ElMessageBox.confirm(`确定要删除智能体 “${agent.name}” 吗？`, '删除确认', {
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+      type: 'warning',
+    });
+    // 调用后端删除接口
+    loading.value = true;
+    const res = await fetch(`/api/agents/${agent.uuid}`, { method: 'DELETE' });
+    if (res.ok) {
+      ElMessage.success('删除成功');
+      refreshAgents();
+    } else {
+      ElMessage.error('删除失败');
+    }
+  } catch (e) {
+    // 用户取消，无需提示
+  } finally {
+    loading.value = false;
+  }
+}
 import { ref, onMounted, computed } from 'vue';
 const page = ref(1);
 const pageSize = 10;
@@ -71,6 +103,48 @@ import { useRouter } from 'vue-router';
 import TopLoadingBar from './TopLoadingBar.vue';
 const agents = ref([]);
 const loading = ref(false);
+const editId = ref(null);
+const editName = ref('');
+
+function startEdit(agent) {
+  editId.value = agent.uuid;
+  editName.value = agent.name;
+  // 下次 DOM 更新后自动聚焦
+  nextTick(() => {
+    const input = document.querySelector('.edit-input');
+    if (input) input.focus();
+  });
+}
+function cancelEdit() {
+  editId.value = null;
+  editName.value = '';
+}
+async function saveEdit(agent) {
+  const newName = editName.value.trim();
+  if (!newName || newName === agent.name) {
+    cancelEdit();
+    return;
+  }
+  loading.value = true;
+  try {
+    const res = await fetch(`/api/agents/${agent.uuid}/name`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: newName })
+    });
+    if (res.ok) {
+      agent.name = newName;
+      cancelEdit();
+      ElMessage.success('更新成功');
+    } else {
+      ElMessage.error('更新失败');
+    }
+  } catch {
+    ElMessage.error('网络错误');
+  }
+  loading.value = false;
+}
+import { nextTick } from 'vue';
 const router = useRouter();
 async function refreshAgents() {
   loading.value = true;
@@ -142,6 +216,18 @@ onMounted(refreshAgents);
   background: #e3f0fd;
   color: #1565c0;
 }
+/* 编辑输入框样式 */
+.edit-input {
+  font-size: 14px;
+  padding: 4px 8px;
+  border: 1px solid #1976d2;
+  border-radius: 4px;
+  outline: none;
+}
+.edit-input:focus {
+  border-color: #1565c0;
+  background: #e3f0fd;
+}
 /* 通用表格样式 */
 .common-table {
   width: 100%;
@@ -178,6 +264,12 @@ onMounted(refreshAgents);
 }
 .btn:hover {
   background: #1565c0;
+}
+.delete-btn {
+  background: #e53935;
+}
+.delete-btn:hover {
+  background: #b71c1c;
 }
 /* 分页栏通用样式 */
 .pagination-bar {

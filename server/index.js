@@ -20,6 +20,43 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
+// 删除智能体
+app.delete('/api/agents/:uuid', async (req, res) => {
+  const { uuid } = req.params;
+  if (!uuid) return res.status(400).json({ error: '参数缺失' });
+  try {
+    const conn = await mysql.createConnection(dbConfig);
+    const [result] = await conn.execute('DELETE FROM agents WHERE uuid=?', [uuid]);
+    await conn.end();
+    if (result.affectedRows > 0) {
+      res.json({ success: true });
+    } else {
+      res.status(404).json({ error: '未找到对应uuid' });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 更新智能体名称
+app.post('/api/agents/:uuid/name', async (req, res) => {
+  const { uuid } = req.params;
+  const { name } = req.body;
+  if (!uuid || !name) return res.status(400).json({ error: '参数缺失' });
+  try {
+    const conn = await mysql.createConnection(dbConfig);
+    const [result] = await conn.execute('UPDATE agents SET name=?, updated_at=NOW() WHERE uuid=?', [name, uuid]);
+    await conn.end();
+    if (result.affectedRows > 0) {
+      res.json({ success: true });
+    } else {
+      res.status(404).json({ error: '未找到对应uuid' });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // 保存/更新指定智能体的 workflow 字段
 app.post('/api/agents/:uuid/workflow', async (req, res) => {
   const { uuid } = req.params;
