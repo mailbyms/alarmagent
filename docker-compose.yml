@@ -1,0 +1,39 @@
+version: '3.8'
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend.Dockerfile
+    container_name: alarmagent-frontend
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+    depends_on:
+      - backend
+  backend:
+    build:
+      context: .
+      dockerfile: backend.Dockerfile
+    container_name: alarmagent-backend
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      - mysql
+  mysql:
+    image: mysql:8.0
+    container_name: alarmagent-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: alarmagent
+      MYSQL_USER: root
+      MYSQL_PASSWORD: root
+    ports:
+      - "7306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+volumes:
+  mysql_data:
