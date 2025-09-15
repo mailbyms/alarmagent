@@ -9,6 +9,7 @@
     "dev2": "concurrently \"npm run dev --prefix server\" \"npm run dev --prefix .\""
   },
   "dependencies": {
+    "@element-plus/icons-vue": "^2.3.2",
     "element-plus": "^2.11.2",
     "playwright": "^1.55.0",
     "simple-flow-web": "^1.0.1",

@@ -1,4 +1,3 @@
-
 <template>
   <div class="dashboard-root">
     <aside class="sidebar">
@@ -8,22 +7,22 @@
           class="menu-item"
           :class="{ active: $route.path === '/' }"
           @click="goPage('/')"
-        >智能体管理</div>
+        ><el-icon><Grid /></el-icon><span>智能体管理</span></div>
         <div
           class="menu-item"
           :class="{ active: $route.path === '/create-agent' }"
           @click="goPage('/create-agent')"
-        >创建智能体</div>
+        ><el-icon><OfficeBuilding /></el-icon><span>创建智能体</span></div>
         <div
           class="menu-item"
           :class="{ active: $route.path === '/workflow' }"
           @click="goPage('/workflow')"
-        >流程编排</div>
+        ><el-icon><SetUp /></el-icon><span>流程编排</span></div>
         <div
           class="menu-item"
           :class="{ active: $route.path === '/task-history' }"
           @click="goPage('/task-history')"
-        >值班历史</div>
+        ><el-icon><List /></el-icon><span>值班历史</span></div>
         <div class="menu-item">审核发布</div>
         <div class="menu-item">设置中心</div>
         <div class="menu-item">日志追踪</div>
@@ -49,6 +48,7 @@
 
 <script setup>
 import { useRouter } from 'vue-router';
+import { Grid, SetUp, OfficeBuilding, List } from '@element-plus/icons-vue';
 const router = useRouter();
 function goPage(path) {
   if (router.currentRoute.value.path !== path) {
@@ -91,6 +91,9 @@ function goPage(path) {
   transition: background 0.2s, color 0.2s;
   color: #222;
   border-left: 4px solid transparent;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 .menu-item.active,
 .menu-item:hover {
