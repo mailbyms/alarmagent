@@ -45,6 +45,7 @@ async function analyzeImage(imageBase64) {
         data += chunk;
       });
       res.on('end', () => {
+        console.log('Raw Model API Response:', data); // Add this line for debugging
         try {
           const responseBody = JSON.parse(data);
           if (responseBody.choices && responseBody.choices[0]) {

@@ -8,11 +8,13 @@
     "dev": "nodemon index.js"
   },
   "dependencies": {
+    "alarm-dashboard": "file:..",
     "cors": "^2.8.5",
     "dotenv": "^17.2.2",
     "express": "^4.18.2",
     "mysql2": "^3.9.7",
     "openai": "^5.20.2",
+    "playwright": "^1.55.0",
     "uuid": "^13.0.0"
   }
 }
