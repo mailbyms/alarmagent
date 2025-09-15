@@ -14,6 +14,7 @@
             <th>完成时间</th>
             <th>状态</th>
             <th>结果</th>
+            <th>分析与告警</th>
           </tr>
         </thead>
         <tbody>
@@ -31,6 +32,25 @@
             </td>
             <td class="result-cell">
               <span class="result-text" :title="task.result">{{ task.result }}</span>
+            </td>
+            <td>
+              <div v-if="task.analysis_result">
+                <span v-if="task.analysis_result.alarm_detected" style="color: red; font-weight: bold;">
+                  检测到告警: {{ task.analysis_result.alarm_description }}
+                </span>
+                <span v-else style="color: green;">无告警</span>
+              </div>
+              <button 
+                v-else 
+                @click="analyzeTask(task.id)" 
+                :disabled="analysisStatus[task.id] === 'loading'"
+                class="analysis-btn"
+              >
+                {{ analysisStatus[task.id] === 'loading' ? '分析中...' : '分析截图' }}
+              </button>
+              <div v-if="analysisStatus[task.id] === 'error'" style="color: red;">
+                分析失败
+              </div>
             </td>
           </tr>
         </tbody>
@@ -65,12 +85,52 @@ function showShots(taskId) {
   showShotsDialog.value = true;
 }
 
+const analysisStatus = ref({});
+
+async function analyzeTask(taskId) {
+  analysisStatus.value[taskId] = 'loading';
+  try {
+    const res = await fetch('/api/analysis/analyze-shots', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ taskId }),
+    });
+    if (!res.ok) {
+      throw new Error('Analysis request failed');
+    }
+    const result = await res.json();
+    
+    // Update the task in the list
+    const task = tasks.value.find(t => t.id === taskId);
+    if (task) {
+      task.analysis_result = result;
+    }
+    analysisStatus.value[taskId] = 'done';
+
+  } catch (e) {
+    console.error('Failed to analyze task:', e);
+    analysisStatus.value[taskId] = 'error';
+  }
+}
+
 async function fetchTasks() {
   loading.value = true;
   try {
     const res = await fetch(`/api/crawler/tasks?page=${page.value}&pageSize=${pageSize}`);
     const data = await res.json();
-    tasks.value = Array.isArray(data.list) ? data.list : [];
+    tasks.value = Array.isArray(data.list) ? data.list.map(t => {
+        // The result from DB might be a string, parse it
+        if (typeof t.analysis_result === 'string') {
+            try {
+                t.analysis_result = JSON.parse(t.analysis_result);
+            } catch {
+                t.analysis_result = { error: 'Failed to parse analysis result' };
+            }
+        }
+        return t;
+    }) : [];
     total.value = data.total || 0;
   } catch (e) {
     tasks.value = [];
@@ -89,6 +149,9 @@ onMounted(fetchTasks);
 </script>
 
 <style scoped>
+/* ... existing styles ... */
+
+
 /* 以白色为主，焦点色为蓝色，风格与智能体管理一致 */
 .task-history-root {
   background: #fff;

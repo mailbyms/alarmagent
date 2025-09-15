@@ -1,6 +1,29 @@
 <template>
-  <el-dialog :model-value="visible" @update:model-value="emit('update:visible', $event)" title="任务截图" width="700px" :close-on-click-modal="true">
-    <TopLoadingBar :loading="loading" />
+  <el-dialog :model-value="visible" @update:model-value="emit('update:visible', $event)" width="700px" :close-on-click-modal="true">
+    <template #header="{ close, titleId, titleClass }">
+      <div class="my-header">
+        <h4 :id="titleId" :class="titleClass">任务截图</h4>
+        <button @click="analyzeTaskInDialog" :disabled="analysisStatus === 'loading'" class="analysis-btn-dialog">
+          {{ analysisStatus === 'loading' ? '分析中...' : '分析截图' }}
+        </button>
+      </div>
+    </template>
+
+    <TopLoadingBar :loading="loading || analysisStatus === 'loading'" />
+
+    <div v-if="analysisResult" class="analysis-result-box">
+      <h5>分析结果:</h5>
+      <div v-if="analysisResult.alarm_detected" style="color: red; font-weight: bold;">
+        检测到告警: {{ analysisResult.alarm_description }}
+      </div>
+      <div v-else-if="analysisResult.error" style="color: orange;">
+        分析出错: {{ analysisResult.details }}
+      </div>
+      <div v-else style="color: green;">
+        无告警
+      </div>
+    </div>
+
     <div v-if="shots.length === 0 && !loading" style="text-align:center;padding:40px 0;">暂无截图</div>
     <div v-else>
       <!-- 轮播模式：图片多于5张 -->
@@ -30,35 +53,61 @@
 import { ref, watch } from 'vue';
 import TopLoadingBar from './TopLoadingBar.vue';
 import ElImageViewer from 'element-plus/es/components/image-viewer/index.mjs';
+
 const props = defineProps({
   taskId: { type: [Number, String], required: true },
   visible: { type: Boolean, required: true },
 });
 const emit = defineEmits(['update:visible']);
+
 const shots = ref([]);
 const loading = ref(false);
 const currentIndex = ref(0);
 const showPreview = ref(false);
 const previewIndex = ref(0);
 
-watch([
-  () => props.visible,
-  () => props.taskId
-], async ([visible, taskId], [oldVisible, oldTaskId]) => {
+const analysisResult = ref(null);
+const analysisStatus = ref('idle'); // idle, loading, done, error
+
+watch([() => props.visible, () => props.taskId], async ([visible, taskId]) => {
   if (visible && taskId) {
+    // Reset states for new task
+    shots.value = [];
+    analysisResult.value = null;
+    analysisStatus.value = 'idle';
+    currentIndex.value = 0;
+
     loading.value = true;
     try {
       const res = await fetch(`/api/crawler/shots?taskId=${taskId}`);
       const data = await res.json();
       shots.value = Array.isArray(data) ? data : [];
-      currentIndex.value = 0;
     } catch {
       shots.value = [];
-      currentIndex.value = 0;
     }
     loading.value = false;
   }
 });
+
+async function analyzeTaskInDialog() {
+  analysisStatus.value = 'loading';
+  analysisResult.value = null;
+  try {
+    const res = await fetch('/api/analysis/analyze-shots', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ taskId: props.taskId }),
+    });
+    if (!res.ok) throw new Error('Analysis request failed');
+    const result = await res.json();
+    analysisResult.value = result;
+    analysisStatus.value = 'done';
+  } catch (e) {
+    console.error('Failed to analyze task in dialog:', e);
+    analysisResult.value = { error: 'Analysis failed', details: e.message };
+    analysisStatus.value = 'error';
+  }
+}
 
 function prevShot() {
   if (shots.value.length > 0) {
@@ -78,12 +127,38 @@ function openPreview(idx) {
 </script>
 
 <style scoped>
-.shot-list {
+.my-header {
   display: flex;
-  flex-wrap: wrap;
-  gap: 24px;
+  flex-direction: row;
   justify-content: flex-start;
+  align-items: center;
 }
+.analysis-btn-dialog {
+  background: #fff;
+  color: #ff9800;
+  border: 1px solid #ff9800;
+  border-radius: 4px;
+  padding: 4px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+  margin-left: 16px;
+}
+.analysis-btn-dialog:hover {
+  background: #fff3e0;
+}
+.analysis-btn-dialog:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.analysis-result-box {
+  margin-bottom: 16px;
+  padding: 12px;
+  background-color: #f9f9f9;
+  border: 1px solid #eee;
+  border-radius: 6px;
+}
+
 .shot-list-horizontal {
   display: flex;
   flex-direction: row;
@@ -96,12 +171,6 @@ function openPreview(idx) {
   flex-direction: column;
   align-items: center;
   min-width: 180px;
-}
-.shot-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 24px;
-  justify-content: flex-start;
 }
 .shot-carousel {
   display: flex;
@@ -122,7 +191,6 @@ function openPreview(idx) {
   display: flex;
   align-items: center;
   justify-content: center;
-  position: relative;
   z-index: 2;
   margin: 0 12px;
   box-shadow: 0 2px 8px rgba(25, 118, 210, 0.08);

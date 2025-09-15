@@ -33,7 +33,13 @@ cd server && npm install
 - 导入数据库表初始化脚本doc/alarmagent.sql，并插入测试数据：
 - 修改 `server/index.js` 里的数据库连接配置为你的实际 MySQL 地址、端口、用户名和密码。
 
-### 3. 启动开发环境
+### 3. 配置环境变量
+服务端使用了modelscope提供的视觉大模型对截图进行告警信息分析提取， 需要在环境变量定义 token
+```
+echo "MODELSCOPE_API_KEY=ms-xxxx" > server/.env
+```
+
+### 4. 启动开发环境
 
 推荐使用 concurrently 一键启动前后端：
 
@@ -51,7 +57,7 @@ npm run dev --prefix server
 npm run dev
 ```
 
-### 4. 访问
+### 5. 访问
 
 - 前端开发环境：http://localhost:5173
 - 后端 API：http://localhost:3001/api/agents

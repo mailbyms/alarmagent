@@ -18,6 +18,8 @@ const mysql = require('mysql2/promise');
 const cors = require('cors');
 const { v4: uuidv4 } = require('uuid'); // 顶部引入
 
+const { analyzeImage } = require('./analysis');
+
 const app = express();
 app.use(express.json());
 app.use(cors());
@@ -366,7 +368,8 @@ app.get('/api/crawler/tasks', async (req, res) => {
         t.start_time,
         t.end_time,
         t.status,
-        t.result
+        t.result,
+        t.analysis_result
       FROM
         crawler_task t
       LEFT JOIN
@@ -394,6 +397,51 @@ app.get('/api/crawler/shots', async (req, res) => {
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// Analyze the latest screenshot for a given task
+app.post('/api/analysis/analyze-shots', async (req, res) => {
+  const { taskId } = req.body;
+  if (!taskId) {
+    return res.status(400).json({ error: 'taskId is required' });
+  }
+
+  let conn;
+  try {
+    conn = await mysql.createConnection(dbConfig);
+    // Fetch the most recent screenshot for the task
+    const [shots] = await conn.execute(
+      'SELECT image_base64 FROM crawler_shot WHERE task_id = ? ORDER BY id DESC LIMIT 1',
+      [taskId]
+    );
+
+    if (shots.length === 0) {
+      return res.status(404).json({ error: 'No screenshots found for this task.' });
+    }
+
+    const imageBase64 = shots[0].image_base64;
+
+    // Perform analysis
+    const analysisResult = await analyzeImage(imageBase64);
+
+    // Update the task with the analysis result
+    await conn.execute(
+      'UPDATE crawler_task SET analysis_result = ? WHERE id = ?',
+      [JSON.stringify(analysisResult), taskId]
+    );
+
+    res.json(analysisResult);
+
+  } catch (err) {
+    console.error('Error during analysis or DB operation:', err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Internal server error', details: err.message });
+    }
+  } finally {
+    if (conn) {
+      await conn.end();
+    }
   }
 });
 

@@ -11,7 +11,7 @@
  Target Server Version : 50730
  File Encoding         : 65001
 
- Date: 12/09/2025 13:06:50
+ Date: 15/09/2025 12:37:35
 */
 
 SET NAMES utf8mb4;
@@ -34,7 +34,7 @@ CREATE TABLE `agents`  (
   `workflow` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL COMMENT '编排定义，json格式',
   PRIMARY KEY (`idx`) USING BTREE,
   UNIQUE INDEX `uuid`(`uuid`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 5 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '智能体管理表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 7 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '智能体管理表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for crawler_shot
@@ -47,7 +47,7 @@ CREATE TABLE `crawler_shot`  (
   `image_base64` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL COMMENT 'Base64编码的PNG图片',
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `idx_task_id`(`task_id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 5 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '爬虫截图表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 12 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '爬虫截图表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for crawler_task
@@ -61,8 +61,9 @@ CREATE TABLE `crawler_task`  (
   `end_time` datetime NULL DEFAULT NULL COMMENT '完成时间',
   `status` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'pending' COMMENT '任务状态（pending/running/success/failed）',
   `result` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL COMMENT '任务结果或异常信息',
+  `analysis_result` json NULL COMMENT '截图分析结果',
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `idx_agent_uuid`(`agent_uuid`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 4 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '爬虫任务记录表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 9 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '爬虫任务记录表' ROW_FORMAT = Dynamic;
 
 SET FOREIGN_KEY_CHECKS = 1;

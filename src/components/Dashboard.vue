@@ -1,3 +1,5 @@
+/* 使用 element-plus 作为基础风格。图标：https://element-plus.sxtxhy.com/zh-CN/component/icon.html#icon-collection */
+
 <template>
   <div class="dashboard-root">
     <aside class="sidebar">
