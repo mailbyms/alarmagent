@@ -9,7 +9,7 @@
         <thead>
           <tr>
             <th>任务ID</th>
-            <th>智能体UUID</th>
+            <th>智能体名称</th>
             <th>启动时间</th>
             <th>完成时间</th>
             <th>状态</th>
@@ -21,7 +21,7 @@
             <td>
               <span class="task-id-link" @click="showShots(task.id)">{{ task.id }}</span>
             </td>
-            <td>{{ task.agent_uuid }}</td>
+            <td>{{ task.agent_name }}</td>
             <td>{{ formatLocalTime(task.start_time) }}</td>
             <td>{{ formatLocalTime(task.end_time) }}</td>
             <td>

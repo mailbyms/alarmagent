@@ -357,7 +357,24 @@ app.get('/api/crawler/tasks', async (req, res) => {
   const offset = (page - 1) * pageSize;
   try {
     const conn = await mysql.createConnection(dbConfig);
-    const [rows] = await conn.execute('SELECT id, agent_uuid, workflow_json, start_time, end_time, status, result FROM crawler_task ORDER BY id DESC LIMIT ? OFFSET ?', [pageSize, offset]);
+    const [rows] = await conn.execute(`
+      SELECT
+        t.id,
+        t.agent_uuid,
+        a.name as agent_name,
+        t.workflow_json,
+        t.start_time,
+        t.end_time,
+        t.status,
+        t.result
+      FROM
+        crawler_task t
+      LEFT JOIN
+        agents a ON t.agent_uuid = a.uuid
+      ORDER BY
+        t.id DESC
+      LIMIT ? OFFSET ?
+    `, [pageSize, offset]);
     const [[{ total } = { total: 0 }]] = await conn.execute('SELECT COUNT(*) as total FROM crawler_task');
     await conn.end();
     res.json({ list: rows, total });
