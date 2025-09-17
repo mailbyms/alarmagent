@@ -19,53 +19,39 @@
         <span v-if="showDrawer && drawerNode" style="font-size:12px;color:#888;margin-top:2px;user-select:text;">ID: {{ drawerNode.id || (drawerNode.getId && drawerNode.getId()) }}</span>
       </div>
       <div style="margin-bottom: 10px;">
-        <label :style="{color: drawerColor, fontSize: '14px'}">节点名称：</label>
-        <input v-model="drawerData.displayName" type="text" style="{color: drawerColor}" />
+        <label :style="{color: drawerColor, fontSize: '14px'}"><span v-if="isFieldRequired('displayName')" style="color: #f56c6c;">* </span>节点名称：</label>
+        <input v-model="drawerData.displayName" type="text" style="{color: drawerColor}" :class="{ 'invalid': !drawerValidation.displayName }" />
       </div>
-      <div v-if="drawerNodeType==='loginweb'">
-        <label :style="{color: drawerColor}">登录网址：</label>
-        <input v-model="drawerData.url" type="text" placeholder="https://" />
-        <label :style="{color: drawerColor}">用户名选择器：</label>
-        <input v-model="drawerData.usernameSelector" type="text" placeholder="#username" />
-        <label :style="{color: drawerColor}">用户名：</label>
-        <input v-model="drawerData.username" type="text" placeholder="admin" />
-        <label :style="{color: drawerColor}">密码选择器：</label>
-        <input v-model="drawerData.passwordSelector" type="text" placeholder="#password" />
-        <label :style="{color: drawerColor}">密码：</label>
-        <input v-model="drawerData.password" type="text" placeholder="******" />
-      </div>
-      <div v-else-if="drawerNodeType==='openwebpage'">
-        <label :style="{color: drawerColor}">目标网址：</label>
-        <input v-model="drawerData.url" type="text" placeholder="https://" />
-        <label :style="{color: drawerColor}">等待元素选择器：</label>
-        <input v-model="drawerData.waitSelector" type="text" placeholder="如 #main" />
-      </div>
-      <div v-else-if="drawerNodeType==='input'">
-        <label :style="{color: drawerColor}">目标元素选择器：</label>
-        <input v-model="drawerData.selector" type="text" placeholder="#input" />
-        <label :style="{color: drawerColor}">输入内容：</label>
-        <input v-model="drawerData.text" type="text" />
-        <label :style="{color: drawerColor}">每字符延迟(ms)：</label>
-        <input v-model.number="drawerData.delay" type="number" min="0" />
-      </div>
-      <div v-else-if="drawerNodeType==='click'">
-        <label :style="{color: drawerColor}">目标元素选择器：</label>
-        <input v-model="drawerData.selector" type="text" placeholder="#btn" />
-        <label :style="{color: drawerColor}">点击类型：</label>
-        <select v-model="drawerData.clickType">
-          <option value="left">单击</option>
-          <option value="right">右键</option>
-          <option value="double">双击</option>
-        </select>
-        <label :style="{color: drawerColor}">点击前等待元素：</label>
-        <input v-model="drawerData.waitFor" type="text" placeholder="#ready" />
-      </div>
-      <div v-else-if="drawerNodeType==='delay'">
-        <label :style="{color: drawerColor}">等待时长(ms)：</label>
-        <input v-model.number="drawerData.delay" type="number" min="0" />
-        <label :style="{color: drawerColor}">说明：</label>
-        <input v-model="drawerData.reason" type="text" />
-      </div>
+
+      <template v-if="nodeFieldMeta[drawerNodeType]">
+        <div v-for="field in nodeFieldMeta[drawerNodeType]" :key="field.key">
+          <div v-if="!field.condition || field.condition(drawerData)">
+              <div :style="{ display: field.type === 'checkbox' ? 'flex' : 'block', alignItems: 'center', marginTop: field.type === 'checkbox' ? '8px' : '0', marginBottom: field.type === 'checkbox' ? '6px' : '0' }">
+                <label :style="{color: drawerColor, flexShrink: 0, marginRight: '8px', marginTop: 0}">
+                  <span v-if="isFieldRequired(field.key)" style="color: #f56c6c;">* </span>
+                  {{ field.label }}：
+                </label>
+                
+                <input v-if="!field.type || field.type === 'text' || field.type === 'number'" 
+                       :type="field.type || 'text'"
+                       v-model="drawerData[field.key]" 
+                       :placeholder="field.placeholder || ''"
+                       :class="{ 'invalid': !drawerValidation[field.key] }" />
+
+                <input v-if="field.type === 'checkbox'"
+                       type="checkbox"
+                       v-model="drawerData[field.key]"
+                       style="margin:0;" />
+
+                <select v-if="field.type === 'select'"
+                        v-model="drawerData[field.key]"
+                        :class="{ 'invalid': !drawerValidation[field.key] }">
+                  <option v-for="option in field.options" :key="option.value" :value="option.value">{{ option.text }}</option>
+                </select>
+              </div>
+          </div>
+        </div>
+      </template>
   <button class="drawer-save" @click="saveDrawer" :style="{background: drawerColor, borderColor: drawerColor}">保存属性</button>
     </div>
 
@@ -164,6 +150,26 @@ const loading = ref(false);
 // 属性编辑抽屉相关
 const showDrawer = ref(false);
 const drawerData = reactive({});
+// drawerValidation 这个对象的设计目标就是包含所有不同节点类型的抽屉中，可能出现的所有输入字段的键名。
+// 可以把它看作是所有字段校验状态的一个“全集”或“总表”。 这样无论当前编辑的节点类型是什么，drawerValidation 都已经预定义好了所有可能的字段校验状态，避免了动态添加属性带来的响应式问题。  
+// 也意味着如果将来添加了新的节点类型或字段，需要手动在这里添加对应的键名。
+const drawerValidation = reactive({
+  url: true,
+  usernameSelector: true,
+  username: true,
+  passwordSelector: true,
+  password: true,
+  captchaImageSelector: true,
+  captchaInputSelector: true,
+  waitSelector: true,
+  selector: true,
+  text: true,
+  delay: true,
+  waitFor: true,
+  reason: true,
+  path: true,
+  displayName: true
+});
 const drawerNodeType = ref('');
 let drawerNode = null;
 
@@ -181,6 +187,12 @@ function openDrawer(node) {
   Object.assign(drawerData, node.getAttrObject());
   drawerData.displayName = node.getDisplayName ? node.getDisplayName() : (node.displayName || '');
   drawerNode = node;
+
+  // Reset validation state
+  for (const key in drawerValidation) {
+    drawerValidation[key] = true;
+  }
+
   // 只取 rect.sf-flow-node-main-rect 的 fill 颜色
   let color = '';
   if (node._view && typeof node._view.querySelector === 'function') {
@@ -196,14 +208,89 @@ function openDrawer(node) {
   console.log('[Workflow] Drawer opened for node type:', drawerNodeType.value, 'data:', drawerData);
 }
 
+// Define field metadata for each node type
+const nodeFieldMeta = {
+  loginweb: [
+    { key: 'url', label: '登录网址', required: true, type: 'text' },
+    { key: 'usernameSelector', label: '用户名选择器', required: true, type: 'text' },
+    { key: 'username', label: '用户名', required: true, type: 'text' },
+    { key: 'passwordSelector', label: '密码选择器', required: true, type: 'text' },
+    { key: 'password', label: '密码', required: true, type: 'text' },
+    { key: 'useCaptcha', label: '启用验证码识别', required: false, type: 'checkbox' },
+    { key: 'captchaImageSelector', label: '验证码显示区域选择器', required: true, type: 'text', condition: data => data.useCaptcha },
+    { key: 'captchaInputSelector', label: '验证码输入框选择器', required: true, type: 'text', condition: data => data.useCaptcha },
+  ],
+  openwebpage: [
+    { key: 'url', label: '目标网址', required: true, type: 'text' },
+    { key: 'waitSelector', label: '等待元素选择器', required: false, type: 'text' },
+  ],
+  input: [
+    { key: 'selector', label: '目标元素选择器', required: true, type: 'text' },
+    { key: 'text', label: '输入内容', required: true, type: 'text' },
+    { key: 'delay', label: '每字符延迟(ms)', required: true, type: 'number' },
+  ],
+  click: [
+    { key: 'selector', label: '目标元素选择器', required: true, type: 'text' },
+    { key: 'clickType', label: '点击类型', required: true, type: 'select', options: [{value: 'left', text: '单击'}, {value: 'right', text: '右键'}, {value: 'double', text: '双击'}] },
+    { key: 'waitFor', label: '点击前等待元素', required: true, type: 'text' },
+  ],
+  delay: [
+    { key: 'delay', label: '等待时长(ms)', required: true, type: 'number' },
+    { key: 'reason', label: '说明', required: false, type: 'text' },
+  ]
+};
+
+function isFieldRequired(fieldKey) {
+  if (fieldKey === 'displayName') return true;
+
+  const type = drawerNodeType.value;
+  if (nodeFieldMeta[type]) {
+    const meta = nodeFieldMeta[type].find(f => f.key === fieldKey);
+    if (meta && meta.required) {
+      if (meta.condition) {
+        return meta.condition(drawerData);
+      }
+      return true;
+    }
+  }
+  return false;
+}
+
 function saveDrawer() {
   if (drawerNode) {
-    // 保存 displayName
-    if (drawerData.displayName && drawerNode.setDisplayName) {
-      drawerNode.setDisplayName(drawerData.displayName);
+    // Reset validation state
+    for (const key in drawerValidation) {
+      drawerValidation[key] = true;
     }
-    // 保存自定义属性
-    const { displayName, ...rest } = drawerData;
+
+    let isValid = true;
+    const type = drawerNodeType.value;
+    const data = drawerData;
+
+    const fieldsToValidate = Object.keys(drawerValidation);
+    for(const field of fieldsToValidate) {
+        if (isFieldRequired(field)) {
+            if (field === 'delay' && data[field] === 0) {
+                continue;
+            }
+            if (!data[field]) {
+                drawerValidation[field] = false;
+                isValid = false;
+            }
+        }
+    }
+
+    if (!isValid) {
+      ElMessage.error('请填写所有必填项');
+      return;
+    }
+
+    // Save displayName
+    if (data.displayName && drawerNode.setDisplayName) {
+      drawerNode.setDisplayName(data.displayName);
+    }
+    // Save custom properties
+    const { displayName, ...rest } = data;
     drawerNode.a({ ...rest });
     showDrawer.value = false;
     ElMessage.success('属性已保存');
@@ -501,12 +588,15 @@ const nodeTypes = ref([
       category: 'automation',
       bgColor: NODE_COLORS[7],
       color:'#fff',
-      defaults:{
+            defaults:{
         url: '', // 登录网址
         usernameSelector: '', // 用户名输入框选择器
         username: '', // 用户名
         passwordSelector: '', // 密码输入框选择器
-        password: '' // 密码
+        password: '', // 密码
+        useCaptcha: false, // 是否启用验证码识别
+        captchaImageSelector: '.img.wrapper-code', // 验证码图片选择器
+        captchaInputSelector: '#captcha' // 验证码输入框选择器
       },
       icon: loginIcon,
       inputs:1,
@@ -898,5 +988,8 @@ onMounted(() => {
 }
 .drawer-save:hover {
   filter: brightness(0.92);
+}
+.property-drawer input.invalid {
+  border-color: #f56c6c;
 }
 </style>
