@@ -66,4 +66,18 @@ CREATE TABLE `crawler_task`  (
   INDEX `idx_agent_uuid`(`agent_uuid`) USING BTREE
 ) ENGINE = InnoDB AUTO_INCREMENT = 9 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '爬虫任务记录表' ROW_FORMAT = Dynamic;
 
+-- ----------------------------
+-- Table structure for captcha_shot
+-- ----------------------------
+DROP TABLE IF EXISTS `captcha_shot`;
+CREATE TABLE `captcha_shot` (
+  `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `task_id` bigint(20) UNSIGNED NOT NULL COMMENT '关联的爬虫任务ID',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '保存时间',
+  `image_base64` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL COMMENT 'Base64编码的PNG图片',
+  `recognized_text` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '识别出的验证码文本',
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_task_id`(`task_id`) USING BTREE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '验证码截图表' ROW_FORMAT = Dynamic;
+
 SET FOREIGN_KEY_CHECKS = 1;

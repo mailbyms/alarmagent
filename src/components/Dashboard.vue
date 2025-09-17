@@ -25,6 +25,11 @@
           :class="{ active: $route.path === '/task-history' }"
           @click="goPage('/task-history')"
         ><el-icon><List /></el-icon><span>值班历史</span></div>
+        <div
+          class="menu-item"
+          :class="{ active: $route.path === '/captcha-history' }"
+          @click="goPage('/captcha-history')"
+        ><el-icon><Picture /></el-icon><span>验证码识别</span></div>
         <div class="menu-item">审核发布</div>
         <div class="menu-item">设置中心</div>
         <div class="menu-item">日志追踪</div>
@@ -37,6 +42,7 @@
           <template v-else-if="$route.path === '/create-agent'">创建智能体</template>
           <template v-else-if="$route.path === '/workflow'">流程编排</template>
           <template v-else-if="$route.path === '/task-history'">值班历史</template>
+          <template v-else-if="$route.path === '/captcha-history'">验证码识别记录</template>
           <template v-else>智能体中心</template>
         </div>
         <div class="header-user">admin</div>
@@ -50,7 +56,7 @@
 
 <script setup>
 import { useRouter } from 'vue-router';
-import { Grid, SetUp, OfficeBuilding, List } from '@element-plus/icons-vue';
+import { Grid, SetUp, OfficeBuilding, List, Picture } from '@element-plus/icons-vue';
 const router = useRouter();
 function goPage(path) {
   if (router.currentRoute.value.path !== path) {

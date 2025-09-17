@@ -4,9 +4,18 @@
   <div class="workflow-root">
     <div class="header-bar">
       <button @click="importWorkflow">导入</button>
-  <button @click="exportWorkflow">导出</button>
-  <button @click="testWorkflow" style="margin-left:8px;background:#1976d2;color:#fff;">测试</button>
-  <button @click="saveWorkflow" :disabled="!uuid" :class="{disabled:!uuid}" style="margin-left:auto;background:#43a047;border-color:#43a047;">更新到智能体</button>
+      <button @click="exportWorkflow">导出</button>
+      <button @click="testWorkflow" style="margin-left:8px;background:#1976d2;color:#fff;">测试</button>
+
+      <!-- This new wrapper will be pushed to the far right -->
+      <div style="margin-left: auto; display: flex; align-items: center;">
+        <div v-if="uuid && agentName" class="agent-title-wrapper">
+          <span class="agent-title-label">智能体:</span>
+          <h2 class="agent-title">{{ agentName }}</h2>
+        </div>
+
+        <button @click="saveWorkflow" :disabled="!uuid" :class="{disabled:!uuid}" style="background:#43a047;border-color:#43a047;">更新到智能体</button>
+      </div>
     </div>
     <div v-if="!uuid" style="color:#f44336;font-weight:bold;margin-bottom:12px;">当前为自由体验模式，不支持更新到智能体</div>
     <div class="workflow-canvas-wrapper" ref="canvasContainer" @contextmenu.prevent="handleContextMenu" @click="handleClick">
@@ -144,6 +153,7 @@ import timerIcon from '../assets/icons/node/timer.svg';
 import finishIcon from '../assets/icons/node/finish.svg';
 const route = useRoute();
 const uuid = route.query.uuid;
+const agentName = ref('');
 
 const loading = ref(false);
 
@@ -304,7 +314,7 @@ function saveDrawer() {
     // Save custom properties
     const { displayName, ...rest } = data;
     drawerNode.a({ ...rest });
-    showDrawer.value = false;
+    // showDrawer.value = false; // Per user request, do not close drawer on save
     ElMessage.success('属性已保存');
   }
 }
@@ -812,7 +822,9 @@ onMounted(() => {
           // 从 result.list 取出
           const agents = Array.isArray(result.list) ? result.list : [];
           if (agents.length > 0) {
-            const wf = agents[0].workflow;
+            const agent = agents[0];
+            agentName.value = agent.name;
+            const wf = agent.workflow;
             if (wf && (typeof wf === 'object' ? Object.keys(wf).length > 0 : (typeof wf === 'string' && wf.trim() !== '' && wf !== '{}'))) {
               dataModel.deserialize(typeof wf === 'string' ? JSON.parse(wf) : wf);
             } else {
@@ -878,6 +890,23 @@ onMounted(() => {
   color: #bdbdbd !important;
   border-color: #e0e0e0 !important;
   cursor: not-allowed !important;
+}
+
+.agent-title-wrapper {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-right: 16px; /* Space between name and final button */
+}
+.agent-title-label {
+  font-size: 14px;
+  color: #666;
+}
+.agent-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #333;
+  margin: 0;
 }
 
 .workflow-canvas-wrapper {

@@ -4,6 +4,7 @@ import AgentList from '../components/AgentList.vue';
 import CreateAgent from '../components/CreateAgent.vue';
 import Workflow from '../components/Workflow.vue';
 import TaskHistory from '../components/TaskHistory.vue';
+import CaptchaHistory from '../components/CaptchaHistory.vue';
 
 const routes = [
   {
@@ -13,7 +14,8 @@ const routes = [
       { path: '', component: AgentList },
       { path: 'create-agent', component: CreateAgent },
       { path: 'workflow', component: Workflow },
-      { path: 'task-history', component: TaskHistory }
+      { path: 'task-history', component: TaskHistory },
+      { path: 'captcha-history', component: CaptchaHistory }
     ]
   }
 ];

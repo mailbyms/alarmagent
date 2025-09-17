@@ -18,7 +18,7 @@ const mysql = require('mysql2/promise');
 const cors = require('cors');
 const { v4: uuidv4 } = require('uuid'); // 顶部引入
 
-const { analyzeImage } = require('./analysis');
+const { analyzeImage, recognizeCaptcha } = require('./analysis');
 
 const app = express();
 app.use(express.json());
@@ -226,16 +226,55 @@ app.post('/api/workflow/crawler/test', async (req, res) => {
       let result = { id: node.id, type: node.type, displayName: node.p && node.p.displayName };
       try {
         if (node.type === 'loginweb') {
-          const { url, usernameSelector, passwordSelector, username, password } = node.a || {};
+          const { url, usernameSelector, passwordSelector, username, password, useCaptcha, captchaImageSelector, captchaInputSelector } = node.a || {};
+          
+          console.log(`[Workflow Test][loginweb][${node.id}] Opening URL: ${url}`);
           browser = await chromium.launch({ headless: true });
           context = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
           page = await context.newPage();
           await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
+
+          // CAPTCHA LOGIC START
+          if (useCaptcha && captchaImageSelector && captchaInputSelector) {
+            console.log(`[Workflow Test][loginweb][${node.id}] Captcha enabled. Selector: ${captchaImageSelector}`);
+            const captchaElement = page.locator(captchaImageSelector);
+            await captchaElement.waitFor({ state: 'visible', timeout: 10000 });
+            
+            const captchaBuffer = await captchaElement.screenshot();
+            const captchaBase64 = captchaBuffer.toString('base64');
+            
+            // Call analysis service
+            const analysisResult = await recognizeCaptcha(captchaBase64);
+            const captchaCode = (analysisResult && analysisResult.text) ? analysisResult.text.trim() : '';
+            console.log(`[Workflow Test][loginweb][${node.id}] Recognized captcha code: ${captchaCode}`);
+
+            // Save screenshot and result to DB
+            try {
+              if (conn && taskId) {
+                await conn.execute(
+                  'INSERT INTO captcha_shot (task_id, created_at, image_base64, recognized_text) VALUES (?, ?, ?, ?)',
+                  [taskId, new Date(), captchaBase64, captchaCode]
+                );
+              }
+            } catch (imgErr) {
+              console.error('Failed to save captcha shot to DB:', imgErr.message);
+            }
+            
+            if (captchaCode) {
+              console.log(`[Workflow Test][loginweb][${node.id}] Filling captcha "${captchaCode}" in selector: ${captchaInputSelector}`);
+              await page.fill(captchaInputSelector, captchaCode);
+              await page.waitForTimeout(500);
+            }
+          }
+          // CAPTCHA LOGIC END
+
           if (usernameSelector && username) {
+            console.log(`[Workflow Test][loginweb][${node.id}] Filling username in selector: ${usernameSelector}`);
             await page.locator(usernameSelector).waitFor({ state: 'visible', timeout: 10000 });
             await page.fill(usernameSelector, username);
           }
           if (passwordSelector && password) {
+            console.log(`[Workflow Test][loginweb][${node.id}] Filling password in selector: ${passwordSelector}`);
             await page.locator(passwordSelector).waitFor({ state: 'visible', timeout: 10000 });
             await page.fill(passwordSelector, password);
           }
@@ -245,6 +284,7 @@ app.post('/api/workflow/crawler/test', async (req, res) => {
         } else if (node.type === 'openwebpage') {
           const { url } = node.a || {};
           if (page && url) {
+            console.log(`[Workflow Test][openwebpage][${node.id}] Opening URL: ${url}`);
             await page.goto(url, { waitUntil: 'networkidle', timeout: 45000 });
             result.status = 'openwebpage done';
           } else {
@@ -253,6 +293,7 @@ app.post('/api/workflow/crawler/test', async (req, res) => {
         } else if (node.type === 'delay') {
           const { delay } = node.a || {};
           if (page && delay) {
+            console.log(`[Workflow Test][delay][${node.id}] Waiting for ${delay}ms`);
             await page.waitForTimeout(Number(delay));
             result.status = `delay ${delay}ms done`;
           } else {
@@ -260,6 +301,7 @@ app.post('/api/workflow/crawler/test', async (req, res) => {
           }
         } else if (node.type === 'screenshot') {
           if (page) {
+            console.log(`[Workflow Test][screenshot][${node.id}] Taking full page screenshot.`);
             const ts = Date.now();
             let imgBuffer;
             let shotPath = path.join('shots', `${ts}.png`);
@@ -270,7 +312,6 @@ app.post('/api/workflow/crawler/test', async (req, res) => {
               result.status = 'screenshot saved';
               result.shotPath = shotPath;
             } else {
-              // 生产环境只存内存
               imgBuffer = await page.screenshot({ fullPage: true });
               result.status = 'screenshot saved';
             }
@@ -292,6 +333,7 @@ app.post('/api/workflow/crawler/test', async (req, res) => {
         } else if (node.type === 'click') {
           const { selector, clickType } = node.a || {};
           if (page && selector) {
+            console.log(`[Workflow Test][click][${node.id}] Performing ${clickType || 'left'} click on selector: ${selector}`);
             await page.locator(selector).waitFor({ state: 'visible', timeout: 10000 });
             if (clickType === 'right') {
               await page.click(selector, { button: 'right' });
@@ -307,6 +349,7 @@ app.post('/api/workflow/crawler/test', async (req, res) => {
         } else if (node.type === 'input') {
           const { selector, text } = node.a || {};
           if (page && selector && text !== undefined) {
+            console.log(`[Workflow Test][input][${node.id}] Typing text "${text}" into selector: ${selector}`);
             await page.locator(selector).waitFor({ state: 'visible', timeout: 10000 });
             await page.fill(selector, text);
             result.status = 'input done';
@@ -395,6 +438,24 @@ app.get('/api/crawler/shots', async (req, res) => {
     const [rows] = await conn.execute('SELECT id, task_id, created_at, image_base64 FROM crawler_shot WHERE task_id = ? ORDER BY id ASC', [taskId]);
     await conn.end();
     res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/captcha/shots', async (req, res) => {
+  const page = Math.max(1, parseInt(req.query.page) || 1);
+  const pageSize = Math.max(1, Math.min(100, parseInt(req.query.pageSize) || 10));
+  const offset = (page - 1) * pageSize;
+  try {
+    const conn = await mysql.createConnection(dbConfig);
+    const [rows] = await conn.execute(
+      'SELECT id, task_id, created_at, image_base64, recognized_text FROM captcha_shot ORDER BY id DESC LIMIT ? OFFSET ?',
+      [pageSize, offset]
+    );
+    const [[{ total } = { total: 0 }]] = await conn.execute('SELECT COUNT(*) as total FROM captcha_shot');
+    await conn.end();
+    res.json({ list: rows, total });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
