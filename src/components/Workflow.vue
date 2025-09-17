@@ -183,8 +183,19 @@ function openDrawer(node) {
   }
   // 清空属性，防止残留
   for (const k in drawerData) delete drawerData[k];
-  drawerNodeType.value = node.getType();
-  Object.assign(drawerData, node.getAttrObject());
+  const type = node.getType();
+  drawerNodeType.value = type;
+
+  // Get the default values for this node type
+  const nodeTypeDefinition = nodeTypes.value.find(nt => nt.type === type);
+  const defaults = nodeTypeDefinition ? nodeTypeDefinition.options.defaults : {};
+  
+  // Get the node's saved attributes
+  const savedAttrs = node.getAttrObject() || {};
+
+  // Merge them: saved values override defaults
+  Object.assign(drawerData, defaults, savedAttrs);
+
   drawerData.displayName = node.getDisplayName ? node.getDisplayName() : (node.displayName || '');
   drawerNode = node;
 
@@ -211,33 +222,34 @@ function openDrawer(node) {
 // Define field metadata for each node type
 const nodeFieldMeta = {
   loginweb: [
-    { key: 'url', label: '登录网址', required: true, type: 'text' },
-    { key: 'usernameSelector', label: '用户名选择器', required: true, type: 'text' },
-    { key: 'username', label: '用户名', required: true, type: 'text' },
-    { key: 'passwordSelector', label: '密码选择器', required: true, type: 'text' },
-    { key: 'password', label: '密码', required: true, type: 'text' },
+    { key: 'url', label: '登录网址', required: true, type: 'text', placeholder: 'https://' },
+    { key: 'usernameSelector', label: '用户名选择器', required: true, type: 'text', placeholder: '#username' },
+    { key: 'username', label: '用户名', required: true, type: 'text', placeholder: 'admin' },
+    { key: 'passwordSelector', label: '密码选择器', required: true, type: 'text', placeholder: '#password' },
+    { key: 'password', label: '密码', required: true, type: 'text', placeholder: '******' },
     { key: 'useCaptcha', label: '启用验证码识别', required: false, type: 'checkbox' },
-    { key: 'captchaImageSelector', label: '验证码显示区域选择器', required: true, type: 'text', condition: data => data.useCaptcha },
-    { key: 'captchaInputSelector', label: '验证码输入框选择器', required: true, type: 'text', condition: data => data.useCaptcha },
+    { key: 'captchaImageSelector', label: '验证码显示区域选择器', required: true, type: 'text', condition: data => data.useCaptcha, placeholder: '.img.wrapper-code' },
+    { key: 'captchaInputSelector', label: '验证码输入框选择器', required: true, type: 'text', condition: data => data.useCaptcha, placeholder: '#captcha' },
   ],
   openwebpage: [
-    { key: 'url', label: '目标网址', required: true, type: 'text' },
-    { key: 'waitSelector', label: '等待元素选择器', required: false, type: 'text' },
+    { key: 'url', label: '目标网址', required: true, type: 'text', placeholder: 'https://' },
+    { key: 'waitSelector', label: '等待元素选择器', required: false, type: 'text', placeholder: '如 #main' },
   ],
   input: [
-    { key: 'selector', label: '目标元素选择器', required: true, type: 'text' },
+    { key: 'selector', label: '目标元素选择器', required: true, type: 'text', placeholder: '#input' },
     { key: 'text', label: '输入内容', required: true, type: 'text' },
     { key: 'delay', label: '每字符延迟(ms)', required: true, type: 'number' },
   ],
   click: [
-    { key: 'selector', label: '目标元素选择器', required: true, type: 'text' },
+    { key: 'selector', label: '目标元素选择器', required: true, type: 'text', placeholder: '#btn' },
     { key: 'clickType', label: '点击类型', required: true, type: 'select', options: [{value: 'left', text: '单击'}, {value: 'right', text: '右键'}, {value: 'double', text: '双击'}] },
-    { key: 'waitFor', label: '点击前等待元素', required: true, type: 'text' },
+    { key: 'waitFor', label: '点击前等待元素', required: false, type: 'text', placeholder: '#ready' },
   ],
   delay: [
     { key: 'delay', label: '等待时长(ms)', required: true, type: 'number' },
     { key: 'reason', label: '说明', required: false, type: 'text' },
-  ]
+  ],
+  screenshot: []
 };
 
 function isFieldRequired(fieldKey) {
@@ -672,9 +684,7 @@ const nodeTypes = ref([
       category: 'automation',
       bgColor: NODE_COLORS[4],
       color:'#fff',
-      defaults:{
-        path: './screenshots/'
-      },
+      defaults:{},
       icon: snapshotIcon,
       inputs:1,
       outputs:1,
@@ -692,6 +702,7 @@ const nodeTypes = ref([
       color:'#fff',
       defaults:{
         delay: 1000, // 等待时长（ms）
+        reason: '' // 说明
       },
       icon: timerIcon,
       inputs:1,
