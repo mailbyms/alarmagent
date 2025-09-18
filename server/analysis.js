@@ -1,7 +1,9 @@
 require('dotenv').config();
 const https = require('https');
+const http = require('http'); // Using http for ddddocr
+const querystring = require('querystring');
 
-// Generic function to call the model
+// This function remains for calling the Qwen-VL model for alarm analysis
 async function callModel(imageBase64, prompt) {
   const postData = JSON.stringify({
     model: "Qwen/Qwen2.5-VL-72B-Instruct",
@@ -70,12 +72,56 @@ async function analyzeImage(imageBase64) {
 }
 
 /**
- * Recognizes text from a captcha image.
+ * Recognizes text from a captcha image using ddddocr-api.
  */
 async function recognizeCaptcha(imageBase64) {
-  const prompt = "这是一个验证码图片，请识别图中的字符并直接返回文本内容，不要添加任何多余的解释或格式。";
-  const content = await callModel(imageBase64, prompt);
-  return { text: content };
+  const ddddocrApiUrl = process.env.DDDDOCR_API_URL || 'http://localhost:8000/ocr';
+  
+  const postData = querystring.stringify({
+    image: imageBase64,
+    probability: false,
+    png_fix: false
+  });
+
+  const url = new URL(ddddocrApiUrl);
+
+  const options = {
+    hostname: url.hostname,
+    port: url.port,
+    path: url.pathname,
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Content-Length': Buffer.byteLength(postData)
+    }
+  };
+
+  return new Promise((resolve, reject) => {
+    const req = http.request(options, (res) => {
+      let data = '';
+      res.on('data', (chunk) => { data += chunk; });
+      res.on('end', () => {
+        try {
+          const responseBody = JSON.parse(data);
+          if (responseBody && responseBody.code === 200 && responseBody.data) {
+            // Keep the same return format as the previous implementation
+            resolve({ text: responseBody.data });
+          } else {
+            reject(new Error('Invalid response from ddddocr API: ' + data));
+          }
+        } catch (error) {
+          reject(error);
+        }
+      });
+    });
+
+    req.on('error', (error) => {
+      reject(error);
+    });
+
+    req.write(postData);
+    req.end();
+  });
 }
 
 module.exports = { analyzeImage, recognizeCaptcha };

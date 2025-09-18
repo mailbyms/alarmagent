@@ -76,6 +76,7 @@ CREATE TABLE `captcha_shot` (
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '保存时间',
   `image_base64` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL COMMENT 'Base64编码的PNG图片',
   `recognized_text` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '识别出的验证码文本',
+  `raw_text` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '人工校对的原始内容',
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `idx_task_id`(`task_id`) USING BTREE
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '验证码截图表' ROW_FORMAT = Dynamic;

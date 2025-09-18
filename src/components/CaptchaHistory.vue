@@ -11,6 +11,7 @@
             <th>任务ID</th>
             <th>保存时间</th>
             <th>识别内容</th>
+            <th>原始内容 (双击修改)</th>
             <th>验证码图片</th>
           </tr>
         </thead>
@@ -20,6 +21,17 @@
             <td>{{ formatLocalTime(shot.created_at) }}</td>
             <td>
               <span class="recognized-text">{{ shot.recognized_text }}</span>
+            </td>
+            <td>
+              <span v-if="editId !== shot.id" @dblclick="startEdit(shot)" class="editable-text">{{ shot.raw_text }}</span>
+              <input v-else
+                v-model="editText"
+                @blur="saveEdit(shot)"
+                @keyup.enter="saveEdit(shot)"
+                @keyup.esc="cancelEdit"
+                class="edit-input"
+                ref="editInput"
+              />
             </td>
             <td>
               <img v-if="shot.image_base64" :src="'data:image/png;base64,' + shot.image_base64" alt="Captcha Image" class="captcha-image" />
@@ -40,7 +52,8 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, nextTick } from 'vue';
+import { ElMessage } from 'element-plus';
 import { formatLocalTime } from '../utils/format';
 import TopLoadingBar from './TopLoadingBar.vue';
 
@@ -50,6 +63,54 @@ const page = ref(1);
 const pageSize = 10;
 const total = ref(0);
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize)));
+
+const editId = ref(null);
+const editText = ref('');
+
+function startEdit(shot) {
+  editId.value = shot.id;
+  editText.value = shot.raw_text;
+  nextTick(() => {
+    // The input might not be rendered yet, so we need to be careful.
+    // A simple querySelector might be brittle if multiple rows are edited at once (though our logic prevents this).
+    // A ref on the input would be better if we could manage it.
+    const input = document.querySelector('.edit-input');
+    if (input) input.focus();
+  });
+}
+
+function cancelEdit() {
+  editId.value = null;
+  editText.value = '';
+}
+
+async function saveEdit(shot) {
+  const newText = editText.value.trim();
+  if (newText === shot.raw_text) {
+    cancelEdit();
+    return;
+  }
+
+  loading.value = true;
+  try {
+    const res = await fetch(`/api/captcha/shots/${shot.id}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ raw_text: newText })
+    });
+    if (res.ok) {
+      shot.raw_text = newText;
+      ElMessage.success('更新成功');
+    } else {
+      ElMessage.error('更新失败');
+    }
+  } catch (e) {
+    ElMessage.error('网络错误');
+  } finally {
+    cancelEdit();
+    loading.value = false;
+  }
+}
 
 async function fetchShots() {
   loading.value = true;
@@ -154,6 +215,23 @@ onMounted(fetchShots);
   font-size: 16px;
   font-weight: bold;
   color: #333;
+}
+.editable-text {
+  cursor: pointer;
+  font-family: monospace;
+  font-size: 16px;
+}
+.edit-input {
+  font-size: 14px;
+  padding: 4px 8px;
+  border: 1px solid #1976d2;
+  border-radius: 4px;
+  outline: none;
+  width: 100px;
+}
+.edit-input:focus {
+  border-color: #1565c0;
+  background: #e3f0fd;
 }
 .captcha-image {
   max-height: 40px;
