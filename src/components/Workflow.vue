@@ -539,48 +539,62 @@ async function testWorkflow() {
   testProgress.value = [];
   testStatus.value = 'pending';
   testError.value = '';
+
   try {
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', '/api/workflow/crawler/test', true);
-    xhr.setRequestHeader('Content-Type', 'application/json');
-    let lastIndex = 0;
-    xhr.onreadystatechange = function() {
-      if (xhr.readyState === 3 || xhr.readyState === 4) {
-        const text = xhr.responseText;
-        let idx = lastIndex;
-        while (true) {
-          const next = text.indexOf('\n\n', idx);
-          if (next === -1) break;
-          const chunk = text.substring(idx, next).trim();
-          idx = next + 2;
-          if (chunk.startsWith('data:')) {
-            try {
-              const json = JSON.parse(chunk.slice(5).trim());
-              if (json.done) {
-                testStatus.value = 'success';
-              } else if (json.error) {
-                testStatus.value = 'error';
-                testError.value = json.error;
-              } else {
-                testProgress.value.push({
-                  ...json,
-                  _localTime: new Date().toLocaleTimeString()
-                });
-              }
-            } catch {}
+    const response = await fetch('/api/workflow/crawler/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uuid: testUuid, workflow })
+    });
+
+    if (!response.ok) {
+      throw new Error(`服务器错误: ${response.status} ${response.statusText}`);
+    }
+    if (!response.body) {
+      throw new Error('响应体为空');
+    }
+
+    const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        if (testStatus.value === 'pending') {
+          testStatus.value = 'success';
+        }
+        break;
+      }
+
+      buffer += value;
+      let boundary;
+      while ((boundary = buffer.indexOf('\n\n')) !== -1) {
+        const message = buffer.substring(0, boundary).trim();
+        buffer = buffer.substring(boundary + 2);
+
+        if (message.startsWith('data:')) {
+          try {
+            const json = JSON.parse(message.slice(5).trim());
+            if (json.done) {
+              testStatus.value = 'success';
+            } else if (json.error) {
+              testStatus.value = 'error';
+              testError.value = json.error;
+            } else {
+              testProgress.value.push({
+                ...json,
+                _localTime: new Date().toLocaleTimeString()
+              });
+            }
+          } catch (e) {
+            console.error('SSE JSON parsing error:', e, 'chunk:', message);
           }
         }
-        lastIndex = idx;
       }
-    };
-    xhr.onerror = function() {
-      testStatus.value = 'error';
-      testError.value = '测试异常';
-    };
-  xhr.send(JSON.stringify({ uuid: testUuid, workflow }));
+    }
   } catch (e) {
     testStatus.value = 'error';
-    testError.value = '测试异常';
+    testError.value = '测试异常: ' + e.message;
   }
 }
 

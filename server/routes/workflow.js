@@ -24,9 +24,7 @@ module.exports = (dbConfig, isDev) => {
     res.flushHeaders && res.flushHeaders();
 
     function sendSSE(data) {
-      res.write(`data: ${JSON.stringify(data)}
-
-`);
+      res.write(`data: ${JSON.stringify(data)}`);
     }
 
     let uuid, workflow;
@@ -104,8 +102,8 @@ module.exports = (dbConfig, isDev) => {
           if (node.type === 'loginweb') {
             const { url, usernameSelector, passwordSelector, username, password, useCaptcha, captchaImageSelector, captchaInputSelector } = node.a || {};
             console.log(`[Workflow Test][loginweb][${node.id}] Opening URL: ${url}`);
-            browser = await chromium.launch({ headless: true });
-            context = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
+            browser = await chromium.launch({ headless: false });
+            context = await browser.newContext({ viewport: { width: 1920, height: 1080 }, ignoreHTTPSErrors: true});
             page = await context.newPage();
             await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
             if (useCaptcha && captchaImageSelector && captchaInputSelector) {
@@ -115,13 +113,14 @@ module.exports = (dbConfig, isDev) => {
               const captchaBuffer = await captchaElement.screenshot();
               const captchaBase64 = captchaBuffer.toString('base64');
               const analysisResult = await recognizeCaptcha(captchaBase64);
-              const captchaCode = (analysisResult && analysisResult.text) ? analysisResult.text.trim() : '';
-              console.log(`[Workflow Test][loginweb][${node.id}] Recognized captcha code: ${captchaCode}`);
+              const rawCaptchaCode = (analysisResult && analysisResult.text) ? analysisResult.text.trim() : '';
+              const captchaCode = rawCaptchaCode.toUpperCase();
+              console.log(`[Workflow Test][loginweb][${node.id}] Recognized captcha code: ${rawCaptchaCode}, filling with: ${captchaCode}`);
               try {
                 if (conn && taskId) {
                   await conn.execute(
                     'INSERT INTO captcha_shot (task_id, created_at, image_base64, recognized_text, raw_text) VALUES (?, ?, ?, ?, ?)',
-                    [taskId, new Date(), captchaBase64, captchaCode, captchaCode]
+                    [taskId, new Date(), captchaBase64, captchaCode, rawCaptchaCode]
                   );
                 }
               } catch (imgErr) {
@@ -143,14 +142,51 @@ module.exports = (dbConfig, isDev) => {
               await page.locator(passwordSelector).waitFor({ state: 'visible', timeout: 10000 });
               await page.fill(passwordSelector, password);
             }
+            // 打印当前时间
+            console.log(`[Workflow Test][loginweb][${node.id}] Pressing Enter to submit login form at ${new Date().toLocaleString()}`);
             await page.keyboard.press('Enter');
-            await page.waitForLoadState('networkidle', { timeout: 20000 }).catch(() => {});
-            result.status = 'loginweb done';
+
+            // 等待 URL 发生变化，超时时间 10 秒
+            const initialUrl = page.url();
+            try {
+              await page.waitForFunction((url) => window.location.href !== url, initialUrl, { timeout: 10000 });
+              console.log(`[Workflow Test][loginweb][${node.id}] URL changed from ${initialUrl} to ${page.url()}`);
+            } catch (e) {
+              console.log(`[Workflow Test][loginweb][${node.id}] URL did not change within 10s, proceeding with checks.`);
+            }
+
+            console.log(`[Workflow Test][loginweb][${node.id}] Finished waiting for URL change at ${new Date().toLocaleString()}`);
+            // 等待跳转后的页面加载完成
+            await page.waitForLoadState('networkidle', { timeout: 10000 });
+            console.log(`[Workflow Test][loginweb][${node.id}] Page load state is now networkidle at ${new Date().toLocaleString()}.`);
+
+
+            // ========== 登录成功验证 ==========            
+            let usernameInputVisible = true;
+            try {
+              await page.locator(usernameSelector).waitFor({ state: 'visible', timeout: 3000 }); // 等待3秒看输入框是否还在
+              usernameInputVisible = true;
+              console.log(`[Workflow Test][loginweb][${node.id}] Username input still visible after login, indicating failure.`);
+            } catch (e) {
+              usernameInputVisible = false; // 超时说明输入框不可见，这是我们期望的
+              console.log(`[Workflow Test][loginweb][${node.id}] Username input not visible after login, as expected.`);
+            }
+
+            if (loggedIn && !usernameInputVisible) {
+              console.log(`[Workflow Test][loginweb][${node.id}] Login successful. URL changed to ${currentUrl} and username input is gone.`);
+              result.status = 'loginweb done';
+            } else {
+              const failureReason = `URL changed: ${loggedIn}, Username input gone: ${!usernameInputVisible}`;
+              console.error(`[Workflow Test][loginweb][${node.id}] Login failed. Reason: ${failureReason}`);
+              throw new Error(`Login verification failed: ${failureReason}`);
+            }
+            // ========== 验证结束 ==========
           } else if (node.type === 'openwebpage') {
             const { url } = node.a || {};
             if (page && url) {
-              console.log(`[Workflow Test][openwebpage][${node.id}] Opening URL: ${url}`);
+              console.log(`[Workflow Test][openwebpage][${node.id}] Opening URL: ${url} at ${new Date().toLocaleString()}`);
               await page.goto(url, { waitUntil: 'networkidle', timeout: 45000 });
+              console.log(`[Workflow Test][openwebpage][${node.id}] networkidle at ${new Date().toLocaleString()}`);
               result.status = 'openwebpage done';
             } else {
               result.status = 'skip (no page or url)';
