@@ -60,8 +60,8 @@
         <span class="page-info">第 {{ page }} / {{ totalPages }} 页</span>
         <button class="page-btn" :disabled="page===totalPages" @click="changePage(page+1)">下一页</button>
       </div>
-      <!-- 弹窗组件始终挂载，只用 visible 控制显示 -->
-      <TaskShotsDialog :taskId="currentTaskId" v-model:visible="showShotsDialog" />
+  <!-- 仅在有 taskId 时挂载弹窗，避免向子组件传入 null 导致 prop 校验警告 -->
+  <TaskShotsDialog v-if="currentTaskId != null" :taskId="currentTaskId" v-model:visible="showShotsDialog" />
     </div>
   </div>
 </template>

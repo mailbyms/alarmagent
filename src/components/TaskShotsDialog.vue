@@ -87,7 +87,7 @@ watch([() => props.visible, () => props.taskId], async ([visible, taskId]) => {
     }
     loading.value = false;
   }
-});
+}, { immediate: true });
 
 async function analyzeTaskInDialog() {
   analysisStatus.value = 'loading';
