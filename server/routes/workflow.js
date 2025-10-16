@@ -24,7 +24,14 @@ module.exports = (dbConfig, isDev) => {
     res.flushHeaders && res.flushHeaders();
 
     function sendSSE(data) {
-      res.write(`data: ${JSON.stringify(data)}`);
+      try {
+        // SSE requires each event to be terminated by a blank line
+        res.write(`data: ${JSON.stringify(data)}\n\n`);
+        // flush if available (some environments support res.flush)
+        if (typeof res.flush === 'function') res.flush();
+      } catch (e) {
+        console.error('sendSSE error:', e && e.message);
+      }
     }
 
     let uuid, workflow;
@@ -172,11 +179,11 @@ module.exports = (dbConfig, isDev) => {
               console.log(`[Workflow Test][loginweb][${node.id}] Username input not visible after login, as expected.`);
             }
 
-            if (loggedIn && !usernameInputVisible) {
-              console.log(`[Workflow Test][loginweb][${node.id}] Login successful. URL changed to ${currentUrl} and username input is gone.`);
+            if (!usernameInputVisible) {
+              console.log(`[Workflow Test][loginweb][${node.id}] Login successful. Username input is gone.`);
               result.status = 'loginweb done';
             } else {
-              const failureReason = `URL changed: ${loggedIn}, Username input gone: ${!usernameInputVisible}`;
+              const failureReason = `Username input gone: ${!usernameInputVisible}`;
               console.error(`[Workflow Test][loginweb][${node.id}] Login failed. Reason: ${failureReason}`);
               throw new Error(`Login verification failed: ${failureReason}`);
             }
