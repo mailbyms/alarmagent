@@ -35,3 +35,6 @@ coverage/
 
 src/simple-flow-web/
 src/crawler/
+
+# sessions
+sessions/
