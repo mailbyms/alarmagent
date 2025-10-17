@@ -231,6 +231,9 @@ function openDrawer(node) {
 
 // Define field metadata for each node type
 const nodeFieldMeta = {
+  begin: [
+    { key: 'siteId', label: '关联站点', required: false, type: 'select', options: [] },
+  ],
   // note: legacy loginweb nodes are migrated to openwebpage on load; loginweb type removed
   openwebpage: [
     { key: 'siteId', label: '绑定站点', required: false, type: 'select', options: [] },
@@ -864,9 +867,18 @@ async function loadSiteOptions() {
     if (!res.ok) return;
     const list = await res.json();
     const options = Array.isArray(list) ? list.map(s => ({ value: s.id, text: s.name })) : [];
-    // find the openwebpage field meta and set options
+    
+    // Update options for openwebpage node
     if (nodeFieldMeta.openwebpage) {
       const field = nodeFieldMeta.openwebpage.find(f => f.key === 'siteId');
+      if (field) {
+        field.options = options;
+      }
+    }
+
+    // Update options for begin node
+    if (nodeFieldMeta.begin) {
+      const field = nodeFieldMeta.begin.find(f => f.key === 'siteId');
       if (field) {
         field.options = options;
       }

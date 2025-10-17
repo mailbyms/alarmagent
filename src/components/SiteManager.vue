@@ -13,7 +13,7 @@
           <tr>
             <th>ID</th>
             <th>名称</th>
-            <th>HOME URL</th>
+            <th>网站首页 URL</th>
             <th>创建时间</th>
             <th>操作</th>
           </tr>

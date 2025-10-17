@@ -78,6 +78,66 @@ module.exports = (dbConfig, isDev) => {
       res.end();
       return;
     }
+    // If begin node has a siteId attribute, fetch site info and insert a loginweb node after begin
+    try {
+      const beginSiteId = (begin.a && begin.a.siteId) || begin.siteId || (begin.attrs && begin.attrs.siteId);
+      if (beginSiteId) {
+        try {
+          const [siteRows] = await conn.execute('SELECT id, name, home_url, login_steps FROM sites WHERE id = ? LIMIT 1', [beginSiteId]);
+          if (siteRows && siteRows.length > 0) {
+            const site = siteRows[0];
+            // parse login_steps if stored as string
+            let loginSteps = site.login_steps;
+            try { if (typeof loginSteps === 'string' && loginSteps) loginSteps = JSON.parse(loginSteps); } catch (e) { /* ignore */ }
+
+            // create a new login node using site info
+            const loginNodeId = `login_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+            const loginNode = {
+              id: loginNodeId,
+              type: 'loginweb',
+              p: {
+                displayName: '登录网站',
+              },              
+              // attributes expected by loginweb handling in test runner
+              a: {
+                url: (loginSteps && loginSteps.url) || site.home_url || '',
+                usernameSelector: loginSteps && loginSteps.usernameSelector || '',
+                username: loginSteps && loginSteps.username || '',
+                passwordSelector: loginSteps && loginSteps.passwordSelector || '',
+                password: loginSteps && loginSteps.password || '',
+                useCaptcha: !!(loginSteps && loginSteps.useCaptcha),
+                captchaImageSelector: loginSteps && loginSteps.captchaImageSelector || '',
+                captchaInputSelector: loginSteps && loginSteps.captchaInputSelector || ''
+              },
+              // give it an empty wires array which we'll set to begin's previous wires
+              wires: []
+            };
+
+            // preserve original begin outgoing wires
+            const origWires = Array.isArray(begin.wires) ? JSON.parse(JSON.stringify(begin.wires)) : (begin.wires || []);
+
+            // set begin.wires to point to the login node
+            begin.wires = [[loginNodeId]];
+
+            // set loginNode.wires to original targets
+            loginNode.wires = origWires;
+
+            // insert loginNode into nodes array and nodeMap
+            nodes.push(loginNode);
+            nodeMap[loginNodeId] = loginNode;
+            //sendSSE({ info: `Inserted login node ${loginNodeId} for site ${site.id}` });
+          }
+        } catch (qe) {
+          console.warn('Failed to load site for begin.siteId', qe && qe.message);
+        }
+      }
+    } catch (outerErr) {
+      console.warn('Error while trying to insert login node:', outerErr && outerErr.message);
+    }
+
+    // 以json形式打印出最终的节点列表
+    //console.log('Final workflow nodes:', JSON.stringify(nodes, null, 2));
+    
     const ordered = [];
     const visited = new Set();
     function visit(node) {
