@@ -82,3 +82,16 @@ CREATE TABLE `captcha_shot` (
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '验证码截图表' ROW_FORMAT = Dynamic;
 
 SET FOREIGN_KEY_CHECKS = 1;
+
+-- ----------------------------
+-- Table structure for sites
+-- ----------------------------
+DROP TABLE IF EXISTS `sites`;
+CREATE TABLE IF NOT EXISTS `sites` (
+  `id` INT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `name` VARCHAR(255) NOT NULL COMMENT '站点显示名称',
+  `home_url` VARCHAR(1024) NOT NULL COMMENT '站点主页 URL',
+  `login_steps` LONGTEXT COMMENT '登录步骤(JSON)，可为空',
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='站点信息表';

@@ -27,12 +27,14 @@ const workflowRouter = require('./routes/workflow')(dbConfig, isDev);
 const crawlerRouter = require('./routes/crawler')(dbConfig);
 const captchaRouter = require('./routes/captcha')(dbConfig);
 const analysisRouter = require('./routes/analysis')(dbConfig);
+const sitesRouter = require('./routes/sites')(dbConfig);
 
 app.use('/api/agents', agentsRouter);
 app.use('/api/workflow', workflowRouter);
 app.use('/api/crawler', crawlerRouter);
 app.use('/api/captcha', captchaRouter);
 app.use('/api/analysis', analysisRouter);
+app.use('/api/sites', sitesRouter);
 
 
 // ===== 启动服务 =====

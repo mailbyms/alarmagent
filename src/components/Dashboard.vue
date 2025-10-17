@@ -22,6 +22,11 @@
         ><el-icon><SetUp /></el-icon><span>流程编排</span></div>
         <div
           class="menu-item"
+          :class="{ active: $route.path === '/sites' }"
+          @click="goPage('/sites')"
+        ><el-icon><Link /></el-icon><span>站点管理</span></div>
+        <div
+          class="menu-item"
           :class="{ active: $route.path === '/task-history' }"
           @click="goPage('/task-history')"
         ><el-icon><List /></el-icon><span>值班历史</span></div>
@@ -41,6 +46,7 @@
           <template v-if="$route.path === '/'">智能体管理</template>
           <template v-else-if="$route.path === '/create-agent'">创建智能体</template>
           <template v-else-if="$route.path === '/workflow'">流程编排</template>
+          <template v-else-if="$route.path === '/sites'">站点管理</template>
           <template v-else-if="$route.path === '/task-history'">值班历史</template>
           <template v-else-if="$route.path === '/captcha-history'">验证码识别记录</template>
           <template v-else>智能体中心</template>
@@ -56,7 +62,7 @@
 
 <script setup>
 import { useRouter } from 'vue-router';
-import { Grid, SetUp, OfficeBuilding, List, Picture } from '@element-plus/icons-vue';
+import { Grid, SetUp, OfficeBuilding, List, Picture, Link } from '@element-plus/icons-vue';
 const router = useRouter();
 function goPage(path) {
   if (router.currentRoute.value.path !== path) {

@@ -231,17 +231,9 @@ function openDrawer(node) {
 
 // Define field metadata for each node type
 const nodeFieldMeta = {
-  loginweb: [
-    { key: 'url', label: '登录网址', required: true, type: 'text', placeholder: 'https://' },
-    { key: 'usernameSelector', label: '用户名选择器', required: true, type: 'text', placeholder: '#username' },
-    { key: 'username', label: '用户名', required: true, type: 'text', placeholder: 'admin' },
-    { key: 'passwordSelector', label: '密码选择器', required: true, type: 'text', placeholder: '#password' },
-    { key: 'password', label: '密码', required: true, type: 'text', placeholder: '******' },
-    { key: 'useCaptcha', label: '启用验证码识别', required: false, type: 'checkbox' },
-    { key: 'captchaImageSelector', label: '验证码显示区域选择器', required: true, type: 'text', condition: data => data.useCaptcha, placeholder: '.img.wrapper-code' },
-    { key: 'captchaInputSelector', label: '验证码输入框选择器', required: true, type: 'text', condition: data => data.useCaptcha, placeholder: '#captcha' },
-  ],
+  // note: legacy loginweb nodes are migrated to openwebpage on load; loginweb type removed
   openwebpage: [
+    { key: 'siteId', label: '绑定站点', required: false, type: 'select', options: [] },
     { key: 'url', label: '目标网址', required: true, type: 'text', placeholder: 'https://' },
     { key: 'waitSelector', label: '等待元素选择器', required: false, type: 'text', placeholder: '如 #main' },
   ],
@@ -864,6 +856,28 @@ onMounted(() => {
     }
   }
 });
+
+// fetch site list for openwebpage select options
+async function loadSiteOptions() {
+  try {
+    const res = await fetch('/api/sites');
+    if (!res.ok) return;
+    const list = await res.json();
+    const options = Array.isArray(list) ? list.map(s => ({ value: s.id, text: s.name })) : [];
+    // find the openwebpage field meta and set options
+    if (nodeFieldMeta.openwebpage) {
+      const field = nodeFieldMeta.openwebpage.find(f => f.key === 'siteId');
+      if (field) {
+        field.options = options;
+      }
+    }
+  } catch (e) {
+    console.warn('loadSiteOptions failed', e);
+  }
+}
+
+// Load sites once on module init
+loadSiteOptions();
 // 样式
 //@vue-ignore
 </script>
