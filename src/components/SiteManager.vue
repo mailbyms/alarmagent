@@ -6,7 +6,7 @@
         <button class="refresh-btn" @click="fetchSites">刷新</button>
       </div>
     </div>
-
+    <TopLoadingBar :loading="loading" />
     <div class="table-section">
       <table class="common-table">
         <thead>
@@ -19,7 +19,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="site in sites" :key="site.id">
+          <tr v-for="site in paginatedSites" :key="site.id">
             <td>{{ site.id }}</td>
             <td>{{ site.name }}</td>
             <td title="{{ site.home_url }}">{{ site.home_url }}</td>
@@ -27,11 +27,16 @@
             <td>
               <button class="btn" @click="openEdit(site)">编辑</button>
               <button class="btn" style="margin-left:8px;background:#ffa000;" @click="openCompose(site)">登录编排</button>
-              <button class="btn delete-btn" style="margin-left:8px;background:#e53935;" @click="confirmDelete(site)">删除</button>
+              <button class="btn delete-btn" style="margin-left:8px;" @click="confirmDelete(site)">删除</button>
             </td>
           </tr>
         </tbody>
       </table>
+      <div class="pagination-bar">
+        <button class="page-btn" :disabled="page === 1" @click="changePage(page - 1)">上一页</button>
+        <span class="page-info">第 {{ page }} / {{ totalPages }} 页</span>
+        <button class="page-btn" :disabled="page === totalPages" @click="changePage(page + 1)">下一页</button>
+      </div>
     </div>
 
     <!-- Modal for create/edit -->
@@ -111,9 +116,10 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { ElMessageBox, ElMessage } from 'element-plus';
 import { formatLocalTime } from '../utils/format';
+import TopLoadingBar from './TopLoadingBar.vue';
 
 const sites = ref([]);
 const loading = ref(false);
@@ -132,6 +138,22 @@ const composeData = ref({
   captchaImageSelector: '',
   captchaInputSelector: ''
 });
+
+const page = ref(1);
+const pageSize = 10;
+const total = computed(() => sites.value.length);
+const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize)));
+
+const paginatedSites = computed(() => {
+  const start = (page.value - 1) * pageSize;
+  const end = start + pageSize;
+  return sites.value.slice(start, end);
+});
+
+function changePage(p) {
+  if (p < 1 || p > totalPages.value) return;
+  page.value = p;
+}
 
 function openCreate() {
   editSite.value = {};
@@ -256,14 +278,108 @@ onMounted(fetchSites);
 </script>
 
 <style scoped>
-.site-manager-root { background:#fff;border-radius:12px;padding:16px;margin-top:32px; }
-.common-table { width:100%; border-collapse:collapse; font-size:14px }
-.common-table th, .common-table td { padding:12px 8px; text-align:left }
-.common-table thead { background:#e3f0fd }
-.btn { background:#1976d2;color:#fff;border:none;border-radius:6px;padding:6px 18px;cursor:pointer }
-.create-btn { background:#1976d2;color:#fff;border:none;border-radius:6px;padding:8px 22px }
-.refresh-btn { background:#fff;color:#1976d2;border:1px solid #1976d2;border-radius:6px;padding:8px 22px;margin-left:12px }
-.delete-btn { background:#e53935;color:#fff;border:none;border-radius:6px;padding:6px 18px }
+/* 以白色为主，焦点色为蓝色 */
+.site-manager-root {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(36, 37, 38, 0.04);
+  padding: 16px;
+  margin-top: 32px;
+}
+.header-bar {
+  margin-bottom: 18px;
+}
+.create-btn {
+  background: #1976d2;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 22px;
+  font-size: 15px;
+  cursor: pointer;
+  transition: background 0.2s;
+  box-shadow: 0 2px 8px rgba(25, 118, 210, 0.08);
+}
+.create-btn:hover {
+  background: #1565c0;
+}
+.refresh-btn {
+  background: #fff;
+  color: #1976d2;
+  border: 1px solid #1976d2;
+  border-radius: 6px;
+  padding: 8px 22px;
+  font-size: 15px;
+  cursor: pointer;
+  margin-left: 12px;
+  transition: background 0.2s, color 0.2s;
+}
+.refresh-btn:hover {
+  background: #e3f0fd;
+  color: #1565c0;
+}
+/* 通用表格样式 */
+.common-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.common-table th, .common-table td {
+  padding: 12px 8px;
+  text-align: left;
+}
+.common-table thead {
+  background: #e3f0fd;
+}
+.common-table tbody tr {
+  border-bottom: 1px solid #e0e3eb;
+}
+.btn {
+  background: #1976d2;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 18px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.2s;
+}
+.btn:hover {
+  background: #1565c0;
+}
+.delete-btn {
+  background: #e53935;
+}
+.delete-btn:hover {
+  background: #b71c1c;
+}
+/* 分页栏通用样式 */
+.pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  margin-top: 32px;
+  gap: 16px;
+}
+.page-btn {
+  background: #fff;
+  color: #1976d2;
+  border: 1px solid #1976d2;
+  border-radius: 6px;
+  padding: 4px 16px;
+  font-size: 15px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.page-btn:disabled {
+  color: #aaa;
+  border-color: #eee;
+  cursor: not-allowed;
+}
+.page-info {
+  font-size: 15px;
+  color: #333;
+}
 
 /* Modal styles */
 .modal-overlay {
