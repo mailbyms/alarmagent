@@ -8,7 +8,7 @@ module.exports = (dbConfig) => {
     try {
       const mysql = require('mysql2/promise');
       conn = await mysql.createConnection(dbConfig);
-      const [rows] = await conn.execute('SELECT id, name, home_url, login_steps, created_at FROM sites ORDER BY id DESC');
+      const [rows] = await conn.execute('SELECT id, name, home_url, login_steps, created_at, last_login_at FROM sites ORDER BY id DESC');
       // parse login_steps if stored as JSON string
       const list = rows.map(r => ({
         ...r,
@@ -30,7 +30,7 @@ module.exports = (dbConfig) => {
     try {
       const mysql = require('mysql2/promise');
       conn = await mysql.createConnection(dbConfig);
-      const [rows] = await conn.execute('SELECT id, name, home_url, login_steps, created_at FROM sites WHERE id = ?', [id]);
+      const [rows] = await conn.execute('SELECT id, name, home_url, login_steps, created_at, last_login_at FROM sites WHERE id = ?', [id]);
       if (!rows || rows.length === 0) return res.status(404).json({ error: 'Not found' });
       const r = rows[0];
       r.login_steps = typeof r.login_steps === 'string' && r.login_steps ? JSON.parse(r.login_steps) : r.login_steps;

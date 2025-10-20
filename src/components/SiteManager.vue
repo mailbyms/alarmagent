@@ -15,6 +15,7 @@
             <th>名称</th>
             <th>网站首页 URL</th>
             <th>创建时间</th>
+            <th>上次登录时间</th>
             <th>操作</th>
           </tr>
         </thead>
@@ -24,6 +25,7 @@
             <td>{{ site.name }}</td>
             <td title="{{ site.home_url }}">{{ site.home_url }}</td>
             <td>{{ formatLocalTime(site.created_at) }}</td>
+            <td>{{ formatLocalTime(site.last_login_at) }}</td>
             <td>
               <button class="btn" @click="openEdit(site)">编辑</button>
               <button class="btn" style="margin-left:8px;background:#ffa000;" @click="openCompose(site)">登录编排</button>

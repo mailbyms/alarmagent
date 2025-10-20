@@ -93,5 +93,6 @@ CREATE TABLE IF NOT EXISTS `sites` (
   `home_url` VARCHAR(1024) NOT NULL COMMENT '站点主页 URL',
   `login_steps` LONGTEXT COMMENT '登录步骤(JSON)，可为空',
   `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `last_login_at` DATETIME NULL DEFAULT NULL COMMENT '最近一次成功登录时间',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='站点信息表';

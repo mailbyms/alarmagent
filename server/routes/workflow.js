@@ -172,7 +172,7 @@ module.exports = (dbConfig, isDev) => {
         let result = { id: node.id, type: node.type, displayName: node.p && node.p.displayName };
         try {
           if (node.type === 'loginweb') {
-            const { homeUrl, url, usernameSelector, passwordSelector, username, password, useCaptcha, captchaImageSelector, captchaInputSelector } = node.a || {};
+            const { siteId, homeUrl, url, usernameSelector, passwordSelector, username, password, useCaptcha, captchaImageSelector, captchaInputSelector } = node.a || {};
             const sessionPath = path.join(SESSIONS_DIR, 'sessions.json');
             let loggedIn = false;
 
@@ -204,6 +204,14 @@ module.exports = (dbConfig, isDev) => {
                 loggedIn = true;
                 result.status = 'loginweb done (session restored)';
                 console.log(`[Workflow Test][loginweb][${node.id}] Session is valid for ${homeUrl}. Skipping login.`);
+                if (conn && siteId) {
+                  try {
+                    await conn.execute('UPDATE sites SET last_login_at = ? WHERE id = ?', [new Date(), siteId]);
+                    console.log(`[Workflow Test][loginweb][${node.id}] Updated last_login_at for site ${siteId}`);
+                  } catch (dbErr) {
+                    console.error(`[Workflow Test][loginweb][${node.id}] Failed to update last_login_at for site ${siteId}: ${dbErr.message}`);
+                  }
+                }
               } else {
                 console.log(`[Workflow Test][loginweb][${node.id}] Session is invalid for ${homeUrl} (redirected to login page).`);
               }
@@ -266,6 +274,14 @@ module.exports = (dbConfig, isDev) => {
 
               if (!finalUrl.includes('/login')) {
                 console.log(`[Workflow Test][loginweb][${node.id}] Login successful.`);
+                if (conn && siteId) {
+                  try {
+                    await conn.execute('UPDATE sites SET last_login_at = ? WHERE id = ?', [new Date(), siteId]);
+                    console.log(`[Workflow Test][loginweb][${node.id}] Updated last_login_at for site ${siteId}`);
+                  } catch (dbErr) {
+                    console.error(`[Workflow Test][loginweb][${node.id}] Failed to update last_login_at for site ${siteId}: ${dbErr.message}`);
+                  }
+                }
                 try {
                   // This overwrites the file with the new combined storage state
                   await context.storageState({ path: sessionPath });
