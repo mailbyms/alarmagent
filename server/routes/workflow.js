@@ -170,6 +170,7 @@ module.exports = (dbConfig, isDev) => {
     try {
       for (const node of ordered) {
         let result = { id: node.id, type: node.type, displayName: node.p && node.p.displayName };
+        let stepFailed = false;
         try {
           if (node.type === 'loginweb') {
             const { siteId, homeUrl, url, usernameSelector, passwordSelector, username, password, useCaptcha, captchaImageSelector, captchaInputSelector } = node.a || {};
@@ -377,9 +378,13 @@ module.exports = (dbConfig, isDev) => {
         } catch (stepErr) {
           result.status = 'error: ' + stepErr.message;
           taskStatus = 'failed';
+          stepFailed = true;
         }
         sendSSE(result);
         taskResult.push(result);
+        if (stepFailed) {
+          break;
+        }
       }
       if (browser) await browser.close();
       endTime = new Date();
