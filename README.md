@@ -73,6 +73,7 @@ npm run dev
 
 ## 设计稿
 - 见 doc/dash.png
+- 工作流节点的图标使用了 iconfont 的 svg 图标（白色线条）：https://www.iconfont.cn/
 
 ## 其他
 如需自定义功能或遇到问题，请联系开发者。
