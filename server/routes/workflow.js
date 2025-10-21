@@ -266,6 +266,8 @@ module.exports = (dbConfig, isDev) => {
               await page.keyboard.press('Enter');
 
               await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => console.log('networkidle timeout, proceeding anyway'));
+              // TODO 注意这里要等几秒（后续优化），上面的 page.waitForLoadState 可能不够
+              await page.waitForTimeout(3000); // wait a bit for any redirects
 
               // 4. Verify login success and save session
               console.log(`[Workflow Test][loginweb][${node.id}] Verifying login success by navigating to home URL: ${homeUrl}`);
