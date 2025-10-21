@@ -136,7 +136,8 @@ const NODE_COLORS = [
   '#ff8feaff',  
   '#ffd600',  
   '#ca7301ff',  
-  '#15a892ff',  
+  '#15a892ff',
+  '#a483e0',
 ];
 import TopLoadingBar from './TopLoadingBar.vue';
 import { useRoute } from 'vue-router';
@@ -151,6 +152,7 @@ import mouseIcon from '../assets/icons/node/mouse.svg';
 import snapshotIcon from '../assets/icons/node/snapshot.svg';
 import timerIcon from '../assets/icons/node/timer.svg';
 import finishIcon from '../assets/icons/node/finish.svg';
+import hoverClickIcon from '../assets/icons/node/hover-click.svg';
 const route = useRoute();
 const uuid = route.query.uuid;
 const agentName = ref('');
@@ -173,6 +175,7 @@ const drawerValidation = reactive({
   captchaInputSelector: true,
   waitSelector: true,
   selector: true,
+  clickSelector: true,
   text: true,
   delay: true,
   waitFor: true,
@@ -249,6 +252,10 @@ const nodeFieldMeta = {
     { key: 'selector', label: '目标元素选择器', required: true, type: 'text', placeholder: '#btn' },
     { key: 'clickType', label: '点击类型', required: true, type: 'select', options: [{value: 'left', text: '单击'}, {value: 'right', text: '右键'}, {value: 'double', text: '双击'}] },
     { key: 'waitFor', label: '点击前等待元素', required: false, type: 'text', placeholder: '#ready' },
+  ],
+  hoverclick: [
+    { key: 'selector', label: '悬停元素选择器', required: true, type: 'text', placeholder: 'text="一级菜单"' },
+    { key: 'clickSelector', label: '点击元素选择器', required: true, type: 'text', placeholder: 'text="弹出菜单项"' },
   ],
   delay: [
     { key: 'delay', label: '等待时长(ms)', required: true, type: 'number' },
@@ -696,6 +703,25 @@ const nodeTypes = ref([
     }
   },
   {
+    type: 'hoverclick',
+    displayName: '悬停点击',
+    options: {
+      align:'left',
+      category: 'automation',
+      bgColor: NODE_COLORS[8],
+      color:'#fff',
+      defaults:{
+        selector: '', // 悬停目标元素选择器
+        clickSelector: '', // 点击目标元素选择器
+      },
+      icon: hoverClickIcon,
+      inputs:1,
+      outputs:1,
+      width:150,
+      height: 40
+    }
+  },
+  {
     type: 'screenshot',
     displayName: '截图保存',
     options: {
@@ -749,7 +775,7 @@ const nodeTypes = ref([
 ]);
 
 const menuNodeTypes = computed(() => {
-  return nodeTypes.value.filter(nt => nt.type !== 'begin');
+  return nodeTypes.value.filter(nt => nt.type !== 'begin' && nt.type !== 'loginweb');
 });
 
 onMounted(() => {

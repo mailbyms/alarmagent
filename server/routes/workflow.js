@@ -362,6 +362,20 @@ module.exports = (dbConfig, isDev) => {
             } else {
               result.status = 'skip (no page or selector)';
             }
+          } else if (node.type === 'hoverclick') {
+            const { selector, clickSelector } = node.a || {};
+            if (page && selector && clickSelector) {
+              console.log(`[Workflow Test][hoverclick][${node.id}] Hovering over selector: ${selector}`);
+              const hoverElement = page.locator(selector).first();
+              await hoverElement.waitFor({ state: 'visible', timeout: 10000 });
+              await hoverElement.hover();
+              console.log(`[Workflow Test][hoverclick][${node.id}] Clicking on selector: ${clickSelector}`);
+              await page.locator(clickSelector).waitFor({ state: 'visible', timeout: 10000 });
+              await page.click(clickSelector);
+              result.status = 'hoverclick done';
+            } else {
+              result.status = 'skip (no page, selector or clickSelector)';
+            }
           } else if (node.type === 'input') {
             const { selector, text } = node.a || {};
             if (page && selector && text !== undefined) {
