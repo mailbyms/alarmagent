@@ -4,7 +4,7 @@ const mysql = require('mysql2/promise');
 const { chromium } = require('playwright');
 const path = require('path');
 const fs = require('fs');
-const { analyzeImage, recognizeCaptcha } = require('../analysisService');
+const { analyzeImage, recognizeCaptcha, analyzeImageWithPrompt } = require('../analysisService');
 
 const SESSIONS_DIR = path.join(__dirname, '..', 'sessions');
 ensureDir(SESSIONS_DIR);
@@ -334,12 +334,27 @@ module.exports = (dbConfig, isDev) => {
                 imgBuffer = await page.screenshot({ fullPage: true });
                 result.status = 'screenshot saved';
               }
+              const { vlm_prompt } = node.a || {};
               try {
                 const imgBase64 = imgBuffer.toString('base64');
+                let vlmResult = null;
+
+                if (vlm_prompt) {
+                  console.log(`[Workflow Test][screenshot][${node.id}] VLM prompt found, analyzing image...`);
+                  try {
+                    vlmResult = await analyzeImageWithPrompt(imgBase64, vlm_prompt);
+                    result.status += ' (vlm analysis done)';
+                    result.vlmResult = vlmResult;
+                  } catch (vlmErr) {
+                    console.error(`[Workflow Test][screenshot][${node.id}] VLM analysis failed:`, vlmErr.message);
+                    result.status += ' (vlm analysis failed)';
+                  }
+                }
+
                 if (conn && taskId) {
                   await conn.execute(
-                    'INSERT INTO crawler_shot (task_id, created_at, image_base64) VALUES (?, ?, ?)',
-                    [taskId, new Date(), imgBase64]
+                    'INSERT INTO crawler_shot (task_id, created_at, image_base64, vlm_result) VALUES (?, ?, ?, ?)',
+                    [taskId, new Date(), imgBase64, vlmResult ? JSON.stringify(vlmResult) : null]
                   );
                 }
               } catch (imgErr) {

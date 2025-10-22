@@ -35,7 +35,7 @@
       <template v-if="nodeFieldMeta[drawerNodeType]">
         <div v-for="field in nodeFieldMeta[drawerNodeType]" :key="field.key">
           <div v-if="!field.condition || field.condition(drawerData)">
-              <div :style="{ display: field.type === 'checkbox' ? 'flex' : 'block', alignItems: 'center', marginTop: field.type === 'checkbox' ? '8px' : '0', marginBottom: field.type === 'checkbox' ? '6px' : '0' }">
+              <div :style="{ display: field.type === 'checkbox' ? 'flex' : 'block', alignItems: field.type === 'checkbox' ? 'center' : 'flex-start', marginTop: field.type === 'checkbox' ? '8px' : '0', marginBottom: field.type === 'checkbox' ? '6px' : '0' }">
                 <label :style="{color: drawerColor, flexShrink: 0, marginRight: '8px', marginTop: 0}">
                   <span v-if="isFieldRequired(field.key)" style="color: #f56c6c;">* </span>
                   {{ field.label }}：
@@ -46,6 +46,13 @@
                        v-model="drawerData[field.key]" 
                        :placeholder="field.placeholder || ''"
                        :class="{ 'invalid': !drawerValidation[field.key] }" />
+
+                <el-input v-if="field.type === 'textarea'"
+                          type="textarea"
+                          v-model="drawerData[field.key]"
+                          :placeholder="field.placeholder || ''"
+                          :class="{ 'invalid': !drawerValidation[field.key] }"
+                          :rows="4"></el-input>
 
                 <input v-if="field.type === 'checkbox'"
                        type="checkbox"
@@ -122,7 +129,7 @@ watch(testProgress, async () => {
     testTimelineBox.value.scrollTop = testTimelineBox.value.scrollHeight;
   }
 });
-import { ElMessage, ElDialog, ElTimeline, ElTimelineItem } from 'element-plus';
+import { ElMessage, ElDialog, ElTimeline, ElTimelineItem, ElInput } from 'element-plus';
 import { Loading } from '@element-plus/icons-vue';
 
 const DEFAULT_DRAWER_COLOR = '#1976d2';
@@ -181,6 +188,7 @@ const drawerValidation = reactive({
   waitFor: true,
   reason: true,
   path: true,
+  vlm_prompt: true,
   displayName: true
 });
 const drawerNodeType = ref('');
@@ -261,7 +269,9 @@ const nodeFieldMeta = {
     { key: 'delay', label: '等待时长(ms)', required: true, type: 'number' },
     { key: 'reason', label: '说明', required: false, type: 'text' },
   ],
-  screenshot: []
+  screenshot: [
+        { key: 'vlm_prompt', label: 'VLM prompt', required: false, type: 'textarea', placeholder: '请输入VLM prompt' }
+  ]
 };
 
 function isFieldRequired(fieldKey) {
@@ -723,13 +733,13 @@ const nodeTypes = ref([
   },
   {
     type: 'screenshot',
-    displayName: '截图保存',
+    displayName: '截图分析',
     options: {
       align:'left',
       category: 'automation',
-      bgColor: NODE_COLORS[4],
-      color:'#fff',
-      defaults:{},
+      defaults:{
+        vlm_prompt: ''
+      },
       icon: snapshotIcon,
       inputs:1,
       outputs:1,

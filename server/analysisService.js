@@ -74,6 +74,26 @@ async function analyzeImage(imageBase64) {
 /**
  * Recognizes text from a captcha image using ddddocr-api.
  */
+async function analyzeImageWithPrompt(imageBase64, prompt) {
+  const content = await callModel(imageBase64, prompt);
+  try {
+    // Attempt to parse the content as JSON, looking for a markdown block first.
+    const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/);
+    if (jsonMatch && jsonMatch[1]) {
+      return JSON.parse(jsonMatch[1]);
+    }
+    // If no markdown block, try to parse the whole content.
+    return JSON.parse(content);
+  } catch (e) {
+    console.warn("Could not parse VLM response as JSON, returning raw content.", content);
+    // If parsing fails, return the raw content string.
+    return content;
+  }
+}
+
+/**
+ * Recognizes text from a captcha image using ddddocr-api.
+ */
 async function recognizeCaptcha(imageBase64) {
   const ddddocrApiUrl = process.env.DDDDOCR_API_URL || 'http://localhost:8000/ocr';
   
@@ -124,4 +144,4 @@ async function recognizeCaptcha(imageBase64) {
   });
 }
 
-module.exports = { analyzeImage, recognizeCaptcha };
+module.exports = { analyzeImage, recognizeCaptcha, analyzeImageWithPrompt };

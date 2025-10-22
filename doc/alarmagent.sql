@@ -45,6 +45,7 @@ CREATE TABLE `crawler_shot`  (
   `task_id` bigint(20) UNSIGNED NOT NULL COMMENT '关联的爬虫任务ID',
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '保存时间',
   `image_base64` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL COMMENT 'Base64编码的PNG图片',
+  `vlm_result` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL COMMENT 'VLM分析结果',
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `idx_task_id`(`task_id`) USING BTREE
 ) ENGINE = InnoDB AUTO_INCREMENT = 12 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '爬虫截图表' ROW_FORMAT = Dynamic;
