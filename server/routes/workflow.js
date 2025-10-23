@@ -88,13 +88,13 @@ module.exports = (dbConfig, isDev) => {
             try { if (typeof loginSteps === 'string' && loginSteps) loginSteps = JSON.parse(loginSteps); } catch (e) { /* ignore */ }
 
             // create a new login node using site info
-            const loginNodeId = `login_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+            const loginNodeId = `login_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
             const loginNode = {
               id: loginNodeId,
               type: 'loginweb',
               p: {
                 displayName: '登录网站',
-              },              
+              },
               // attributes expected by loginweb handling in test runner
               a: {
                 siteId: beginSiteId,
@@ -165,7 +165,7 @@ module.exports = (dbConfig, isDev) => {
             let loggedIn = false;
 
             console.log(`[Workflow Test][loginweb][${node.id}] Starting login process.`);
-            browser = await chromium.launch({ headless: false });
+            browser = await chromium.launch({ headless: true });
 
             // 1. Create context, loading session if it exists
             const contextOptions = {
@@ -339,11 +339,13 @@ module.exports = (dbConfig, isDev) => {
                 }
 
                 if (conn && taskId) {
-                  await conn.execute(
+                  const [shotResult] = await conn.execute(
                     'INSERT INTO crawler_shot (task_id, created_at, image_base64, vlm_result) VALUES (?, ?, ?, ?)',
                     [taskId, new Date(), imgBase64, vlmResult ? JSON.stringify(vlmResult) : null]
                   );
+                  result.shotId = shotResult.insertId; // Add shotId to the result object
                 }
+                result.status = 'screenshot saved'; // Update status after all operations
               } catch (imgErr) {
                 result.status += ' (db save failed: ' + imgErr.message + ')';
               }
@@ -398,7 +400,7 @@ module.exports = (dbConfig, isDev) => {
           taskStatus = 'failed';
           stepFailed = true;
         }
-        sendProgress(result);
+        sendProgress(result); // Ensure sendProgress is called exactly once per node
         taskResult.push(result);
         if (stepFailed) {
           break;
@@ -535,6 +537,9 @@ module.exports = (dbConfig, isDev) => {
    *                       vlmResult:
    *                         type: object
    *                         description: VLM分析结果（如果存在）
+   *                       shotId:
+   *                         type: integer
+   *                         description: 截图在crawler_shot表中的ID（如果节点类型为screenshot）
    *       400:
    *         description: 请求参数错误
    *         content:
