@@ -14,73 +14,67 @@ function ensureDir(dir) {
 }
 
 module.exports = (dbConfig, isDev) => {
-  // GET /api/workflow/crawler/test - 仅用于提示用户应使用POST方法
-  router.get('/crawler/test', (req, res) => {
-    res.status(405).end('请使用 POST');
-  });
 
-  // POST /api/workflow/crawler/test - 执行工作流测试
-  router.post('/crawler/test', async (req, res) => {
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-    res.flushHeaders && res.flushHeaders();
-
-    function sendSSE(data) {
-      try {
-        // SSE requires each event to be terminated by a blank line
-        res.write(`data: ${JSON.stringify(data)}\n\n`);
-        // flush if available (some environments support res.flush)
-        if (typeof res.flush === 'function') res.flush();
-      } catch (e) {
-        console.error('sendSSE error:', e && e.message);
-      }
-    }
-
-    let uuid, workflow;
-    if (req.body && req.body.workflow && req.body.uuid) {
-      uuid = req.body.uuid;
-      workflow = req.body.workflow;
-    } else {
-      workflow = req.body;
-      uuid = req.body.uuid;
-    }
-    if (!uuid) {
-      sendSSE({ error: '缺少智能体uuid' });
-      res.end();
-      return;
-    }
-    if (!workflow || !workflow.d || !Array.isArray(workflow.d)) {
-      sendSSE({ error: '参数格式错误，需包含 d 节点数组' });
-      res.end();
-      return;
-    }
-    const nodes = workflow.d;
-
+  async function executeWorkflow(workflow, uuid, sendProgress) {
     let taskId = null;
     let conn = null;
     const startTime = new Date();
+    let browser, context, page;
+    let taskStatus = 'success';
+    let taskResult = [];
+    let endTime = null;
+
     try {
       conn = await mysql.createConnection(dbConfig);
+
+      // 如果传入的工作流为空，则从数据库中查询
+      if (!workflow || !workflow.d || !Array.isArray(workflow.d)) {
+        if (!uuid) {
+          sendProgress({ error: '缺少智能体uuid，无法获取工作流' });
+          return { status: 'failed', error: '缺少智能体uuid，无法获取工作流' };
+        }
+        try {
+          const [agentRows] = await conn.execute('SELECT workflow FROM agents WHERE uuid = ? LIMIT 1', [uuid]);
+          // 打印出数据库获取的工作流内容
+          console.log('Loaded workflow from DB for agent', uuid, agentRows && agentRows[0] && agentRows[0].workflow);
+
+          if (agentRows && agentRows.length > 0 && agentRows[0].workflow) {
+            workflow = JSON.parse(agentRows[0].workflow);
+            if (!workflow || !workflow.d || !Array.isArray(workflow.d)) {
+              sendProgress({ error: '数据库中工作流格式错误' });
+              return { status: 'failed', error: '数据库中工作流格式错误' };
+            }
+          } else {
+            sendProgress({ error: '未找到对应智能体的工作流' });
+            return { status: 'failed', error: '未找到对应智能体的工作流' };
+          }
+        } catch (err) {
+          sendProgress({ error: '查询工作流失败: ' + err.message });
+          return { status: 'failed', error: '查询工作流失败: ' + err.message };
+        }
+      }
+
       const [result] = await conn.execute(
         'INSERT INTO crawler_task (agent_uuid, workflow_json, start_time, status) VALUES (?, ?, ?, ?)',
         [uuid, JSON.stringify(workflow), startTime, 'running']
       );
       taskId = result.insertId;
     } catch (err) {
-      sendSSE({ error: '任务入库失败: ' + err.message });
-      res.end();
+      sendProgress({ error: '任务入库失败: ' + err.message });
       if (conn) await conn.end();
-      return;
+      return { status: 'failed', error: '任务入库失败: ' + err.message };
     }
+
+    const nodes = workflow.d;
     const nodeMap = {};
     nodes.forEach(n => { nodeMap[n.id] = n; });
     const begin = nodes.find(n => n.type === 'begin');
     if (!begin) {
-      sendSSE({ error: '未找到 begin 节点' });
-      res.end();
-      return;
+      sendProgress({ error: '未找到 begin 节点' });
+      if (conn) await conn.end();
+      return { status: 'failed', error: '未找到 begin 节点' };
     }
+
     // If begin node has a siteId attribute, fetch site info and insert a loginweb node after begin
     try {
       const beginSiteId = (begin.a && begin.a.siteId) || begin.siteId || (begin.attrs && begin.attrs.siteId);
@@ -130,7 +124,7 @@ module.exports = (dbConfig, isDev) => {
             // insert loginNode into nodes array and nodeMap
             nodes.push(loginNode);
             nodeMap[loginNodeId] = loginNode;
-            //sendSSE({ info: `Inserted login node ${loginNodeId} for site ${site.id}` });
+            //sendProgress({ info: `Inserted login node ${loginNodeId} for site ${site.id}` });
           }
         } catch (qe) {
           console.warn('Failed to load site for begin.siteId', qe && qe.message);
@@ -140,9 +134,6 @@ module.exports = (dbConfig, isDev) => {
       console.warn('Error while trying to insert login node:', outerErr && outerErr.message);
     }
 
-    // 以json形式打印出最终的节点列表
-    //console.log('Final workflow nodes:', JSON.stringify(nodes, null, 2));
-    
     const ordered = [];
     const visited = new Set();
     function visit(node) {
@@ -163,10 +154,6 @@ module.exports = (dbConfig, isDev) => {
     }
     visit(begin);
 
-    let browser, context, page;
-    let taskStatus = 'success';
-    let taskResult = [];
-    let endTime = null;
     try {
       for (const node of ordered) {
         let result = { id: node.id, type: node.type, displayName: node.p && node.p.displayName };
@@ -411,7 +398,7 @@ module.exports = (dbConfig, isDev) => {
           taskStatus = 'failed';
           stepFailed = true;
         }
-        sendSSE(result);
+        sendProgress(result);
         taskResult.push(result);
         if (stepFailed) {
           break;
@@ -425,9 +412,7 @@ module.exports = (dbConfig, isDev) => {
           [endTime, taskStatus, JSON.stringify(taskResult), taskId]
         );
       }
-      sendSSE({ done: true });
-      res.end();
-      if (conn) await conn.end();
+      return { status: taskStatus, result: taskResult, taskId: taskId };
     } catch (e) {
       if (browser) await browser.close();
       endTime = new Date();
@@ -438,9 +423,72 @@ module.exports = (dbConfig, isDev) => {
           [endTime, taskStatus, JSON.stringify({ error: e.message }), taskId]
         );
       }
-      sendSSE({ error: e.message });
-      res.end();
+      return { status: taskStatus, error: e.message, taskId: taskId };
+    } finally {
       if (conn) await conn.end();
+    }
+  }
+
+  // GET /api/workflow/crawler/test - 仅用于提示用户应使用POST方法
+  router.get('/crawler/test', (req, res) => {
+    res.status(405).end('请使用 POST');
+  });
+
+  // POST /api/workflow/crawler/test - 执行工作流测试
+  router.post('/crawler/test', async (req, res) => {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders && res.flushHeaders();
+
+    function sendSSE(data) {
+      try {
+        res.write(`data: ${JSON.stringify(data)}\n\n`);
+        if (typeof res.flush === 'function') res.flush();
+      } catch (e) {
+        console.error('sendSSE error:', e && e.message);
+      }
+    }
+
+    let uuid = req.body.uuid;
+    let workflow = req.body.workflow;
+
+    if (!uuid) {
+      sendSSE({ error: '缺少智能体uuid' });
+      res.end();
+      return;
+    }
+
+    const executionResult = await executeWorkflow(workflow, uuid, sendSSE);
+
+    if (executionResult.status === 'failed') {
+      sendSSE({ error: executionResult.error });
+    } else {
+      sendSSE({ done: true });
+    }
+    res.end();
+  });
+
+  // POST /api/workflow/execute - 执行单个工作流并返回结果
+  router.post('/execute', async (req, res) => {
+    let uuid = req.body.uuid;
+    let workflow = req.body.workflow;
+
+    if (!uuid) {
+      return res.status(400).json({ error: '缺少智能体uuid' });
+    }
+
+    const collectedResults = [];
+    function collectProgress(data) {
+      collectedResults.push(data);
+    }
+
+    const executionResult = await executeWorkflow(workflow, uuid, collectProgress);
+
+    if (executionResult.status === 'failed') {
+      return res.status(500).json({ error: executionResult.error, details: collectedResults });
+    } else {
+      return res.json({ status: executionResult.status, result: executionResult.result, taskId: executionResult.taskId, details: collectedResults });
     }
   });
 

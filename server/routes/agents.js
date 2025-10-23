@@ -96,7 +96,7 @@ module.exports = (dbConfig) => {
       const conn = await mysql.createConnection(dbConfig);
       const [result] = await conn.execute(
         'UPDATE agents SET workflow = ? WHERE uuid = ?',
-        [JSON.stringify(workflow), uuid]
+        [workflow, uuid]
       );
       await conn.end();
       if (result.affectedRows > 0) {
