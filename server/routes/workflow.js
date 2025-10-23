@@ -513,7 +513,13 @@ module.exports = (dbConfig, isDev) => {
    *                   type: string
    *                   enum: [success, failed]
    *                   description: 任务执行状态
-   *                 result:
+   *                 agentUuid:
+   *                   type: string
+   *                   description: 智能体的唯一标识符
+   *                 taskId:
+   *                   type: integer
+   *                   description: 数据库中记录的任务ID
+   *                 details:
    *                   type: array
    *                   items:
    *                     type: object
@@ -529,14 +535,6 @@ module.exports = (dbConfig, isDev) => {
    *                       vlmResult:
    *                         type: object
    *                         description: VLM分析结果（如果存在）
-   *                 taskId:
-   *                   type: integer
-   *                   description: 数据库中记录的任务ID
-   *                 details:
-   *                   type: array
-   *                   items:
-   *                     type: object
-   *                     description: 每个节点的详细执行情况
    *       400:
    *         description: 请求参数错误
    *         content:
@@ -579,7 +577,7 @@ module.exports = (dbConfig, isDev) => {
     if (executionResult.status === 'failed') {
       return res.status(500).json({ error: executionResult.error, details: collectedResults });
     } else {
-      return res.json({ status: executionResult.status, result: executionResult.result, taskId: executionResult.taskId, details: collectedResults });
+      return res.json({ status: executionResult.status, agentUuid: uuid, taskId: executionResult.taskId, details: collectedResults });
     }
   });
 
