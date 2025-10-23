@@ -6,6 +6,8 @@ const isDev = process.env.NODE_ENV === 'development';
 // ===== 依赖与工具导入 =====
 const express = require('express');
 const cors = require('cors');
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpec = require('./swaggerDef');
 
 // ===== Express App Setup =====
 const app = express();
@@ -36,6 +38,12 @@ app.use('/api/captcha', captchaRouter);
 app.use('/api/analysis', analysisRouter);
 app.use('/api/sites', sitesRouter);
 
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
+app.get('/swagger.json', (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.send(swaggerSpec);
+});
 
 // ===== 启动服务 =====
 const PORT = 3001;

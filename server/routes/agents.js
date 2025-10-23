@@ -5,7 +5,78 @@ const { v4: uuidv4 } = require('uuid');
 
 // This module exports a function that takes dbConfig and returns the router
 module.exports = (dbConfig) => {
-  // GET /api/agents - 获取所有智能体
+  /**
+   * @swagger
+   * /api/agents:
+   *   get:
+   *     summary: 获取智能体列表
+   *     description: 获取所有智能体或根据 UUID 查询特定智能体，支持分页。
+   *     parameters:
+   *       - in: query
+   *         name: uuid
+   *         schema:
+   *           type: string
+   *         description: 智能体的唯一标识符
+   *       - in: query
+   *         name: page
+   *         schema:
+   *           type: integer
+   *           default: 1
+   *         description: 页码
+   *       - in: query
+   *         name: pageSize
+   *         schema:
+   *           type: integer
+   *           default: 10
+   *         description: 每页返回的数量
+   *     responses:
+   *       200:
+   *         description: 成功获取智能体列表
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 list:
+   *                   type: array
+   *                   items:
+   *                     type: object
+   *                     properties:
+   *                       idx:
+   *                         type: integer
+   *                       uuid:
+   *                         type: string
+   *                       name:
+   *                         type: string
+   *                       icon:
+   *                         type: string
+   *                       description:
+   *                         type: string
+   *                       status:
+   *                         type: string
+   *                       created_at:
+   *                         type: string
+   *                         format: date-time
+   *                       updated_at:
+   *                         type: string
+   *                         format: date-time
+   *                       screenshot_count:
+   *                         type: integer
+   *                       workflow:
+   *                         type: string
+   *                 total:
+   *                   type: integer
+   *                   description: 总记录数
+   *       500:
+   *         description: 服务器错误
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 error:
+   *                   type: string
+   */
   router.get('/', async (req, res) => {
     const { uuid, page, pageSize } = req.query;
     const pageNum = Math.max(1, parseInt(page) || 1);
@@ -29,7 +100,12 @@ module.exports = (dbConfig) => {
     }
   });
 
-  // POST /api/agents - 新增智能体
+  /**
+   * /api/agents:
+   *   post:
+   *     summary: 新增智能体
+   *     description: 创建一个新的智能体。
+   */
   router.post('/', async (req, res) => {
     const { name, description, icon } = req.body;
     if (!name) return res.status(400).json({ error: 'name required' });

@@ -48,24 +48,27 @@
     b. 创建一个专门用于此项目的数据库，例如 `alarmagent`。
     c. 导入项目根目录 `doc/alarmagent.sql` 文件来初始化数据库表结构。
 
-4.  **配置数据库连接**
-    打开 `server/index.js` 文件，找到 `dbConfig` 对象，并根据您的数据库实例修改连接信息：
-    ```javascript
-    const dbConfig = {
-      host: 'your_database_host',     // 例如: 'localhost'
-      user: 'your_database_user',     // 例如: 'root'
-      password: 'your_database_password', // 您的密码
-      database: 'alarmagent',         // 您创建的数据库名
-      port: 3306                      // 您的数据库端口
-    };
+4.  **配置环境变量**
+    在 `server` 目录下创建一个 `.env` 文件，并添加以下内容来配置数据库连接和 ModelScope API Key：
     ```
+    DB_HOST=your_database_host     # 例如: localhost
+    DB_USER=your_database_user     # 例如: root
+    DB_PASSWORD=your_database_password # 您的密码
+    DB_DATABASE=alarmagent         # 您创建的数据库名
+    DB_PORT=3306                   # 您的数据库端口
+
+    MODELSCOPE_API_KEY=your_modelscope_api_key # ModelScope 平台的 API Key，用于 VLM 分析
+    DDDDOCR_API_URL=http://localhost:8000/ocr # ddddocr 服务的 URL，用于验证码识别
+    ```
+    请根据您的实际情况替换 `your_database_host`、`your_database_user`、`your_database_password`、`your_modelscope_api_key` 和 `DDDDOCR_API_URL`。
 
 ## 运行服务
 
 -   **开发模式**:
     此模式使用 `nodemon` 运行服务，文件更改时会自动重启，非常适合开发。
+    会同时运行前后端项目。
     ```bash
-    npm run dev
+    npm run dev2
     ```
 
 -   **生产模式**:
@@ -82,17 +85,25 @@
 
 ### 智能体 (Agent) 管理
 
--   `GET /api/agents`: 获取所有智能体的列表（支持分页）。
--   `GET /api/agents?uuid=<uuid>`: 获取指定 `uuid` 的智能体详情。
+-   `GET /api/agents`: 获取所有智能体的列表，支持通过 `uuid` 查询特定智能体，并支持分页。
+-   `POST /api/agents`: 新增一个智能体。
 -   `DELETE /api/agents/:uuid`: 删除一个智能体。
--   `POST /api/agents/:uuid/name`: 更新智能体的名称。
--   `POST /api/agents/:uuid/workflow`: 创建或更新智能体的工作流定义。
+-   `POST /api/agents/:uuid/name`: 更新指定智能体的名称。
+-   `POST /api/agents/:uuid/workflow`: 创建或更新指定智能体的工作流定义。
 
 ### 工作流 (Workflow) 执行
 
 -   `POST /api/workflow/crawler/test`: 接收一个工作流 JSON 对象，并使用 Playwright 异步执行。通过 SSE 流式返回每一步的执行结果。
+-   `POST /api/workflow/execute`: 执行指定智能体的工作流，并返回详细的执行结果、截图及 VLM 分析结果（如有）。
 
 ### 任务历史与截图
 
 -   `GET /api/crawler/tasks`: 获取所有历史任务的执行记录（支持分页）。
 -   `GET /api/crawler/shots?taskId=<taskId>`: 获取指定任务产生的所有截图（以 Base64 格式返回）。
+
+### API 文档
+
+本项目集成了 Swagger UI，提供交互式的 API 文档，您可以通过以下方式访问和获取：
+
+-   **在线查看**: 启动服务后，在浏览器中访问 `http://localhost:3001/api-docs` (如果您的服务运行在默认端口 3001)。您可以在此页面查看所有已定义的 API 接口、其参数、响应示例，并可以直接进行测试。
+-   **获取 OpenAPI 规范文件**: 您可以通过访问 `http://localhost:3001/swagger.json` 来获取原始的 OpenAPI 规范文件（JSON 格式）。这个文件可以用于其他工具进行文档转换或代码生成。

@@ -469,7 +469,98 @@ module.exports = (dbConfig, isDev) => {
     res.end();
   });
 
-  // POST /api/workflow/execute - 执行单个工作流并返回结果
+  /**
+   * @swagger
+   * /api/workflow/execute:
+   *   post:
+   *     summary: 执行单个工作流
+   *     description: 执行指定智能体的工作流，并返回详细的执行结果、截图和VLM分析结果（如果存在）。
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - uuid
+   *             properties:
+   *               uuid:
+   *                 type: string
+   *                 description: 智能体的唯一标识符
+   *               workflow:
+   *                 type: object
+   *                 description: 要执行的工作流定义（可选，如果为空则从数据库加载）
+   *                 example:
+   *                   d:
+   *                     - id: "begin_node"
+   *                       type: "begin"
+   *                       p: { displayName: "开始" }
+   *                       wires: [["openwebpage_node"]]
+   *                     - id: "openwebpage_node"
+   *                       type: "openwebpage"
+   *                       p: { displayName: "打开网页" }
+   *                       a: { url: "https://www.example.com" }
+   *                       wires: []
+   *     responses:
+   *       200:
+   *         description: 工作流执行成功
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 status:
+   *                   type: string
+   *                   enum: [success, failed]
+   *                   description: 任务执行状态
+   *                 result:
+   *                   type: array
+   *                   items:
+   *                     type: object
+   *                     properties:
+   *                       id:
+   *                         type: string
+   *                       type:
+   *                         type: string
+   *                       displayName:
+   *                         type: string
+   *                       status:
+   *                         type: string
+   *                       vlmResult:
+   *                         type: object
+   *                         description: VLM分析结果（如果存在）
+   *                 taskId:
+   *                   type: integer
+   *                   description: 数据库中记录的任务ID
+   *                 details:
+   *                   type: array
+   *                   items:
+   *                     type: object
+   *                     description: 每个节点的详细执行情况
+   *       400:
+   *         description: 请求参数错误
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 error:
+   *                   type: string
+   *       500:
+   *         description: 服务器错误
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 error:
+   *                   type: string
+   *                 details:
+   *                   type: array
+   *                   items:
+   *                     type: object
+   *                     description: 错误发生前的节点执行情况
+   */
   router.post('/execute', async (req, res) => {
     let uuid = req.body.uuid;
     let workflow = req.body.workflow;
