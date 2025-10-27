@@ -66,6 +66,17 @@ npm run dev
 
 前端已配置 Vite 代理，将 /api 请求自动转发到后端 3001 端口。
 
+## 正式部署
+### 打包前后端镜像
+注意镜像名称与 docker-compose.yml 定义的一致
+```bash
+docker build -f backend.Dockerfile -t mailbyms/alarmagent-backend .
+docker build -f frontend.Dockerfile -t mailbyms/alarmagent-frontend .
+```
+### 初始化配置
+- 配置 docker-compose.yml 里定义的视觉大模型访问凭证
+- initdb 目录下放置数据库表初始脚本（见 doc/alarmagent.sql）
+
 ## 主要功能
 - 智能体列表展示（从数据库实时获取）
 - 新建、刷新、详情等操作
